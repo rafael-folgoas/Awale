@@ -34,6 +34,7 @@ bool jouerCoup(Jeu *jeu,int coup,Joueur* joueur);
 
 bool legaliteCoup(Jeu *jeu,int coup);
 //Fin partie 
+int finPartie(Jeu *jeu);
 
 
 #endif
