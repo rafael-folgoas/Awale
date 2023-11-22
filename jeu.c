@@ -1,9 +1,5 @@
 #include "jeu.h"
 
-
-
-
-
 int randomZeroOrOne() {
 
     // Initialise le générateur de nombres aléatoires avec le temps actuel
@@ -15,10 +11,10 @@ int randomZeroOrOne() {
 }
 
 
-bool jouerCoup(Jeu *jeu,int coup,Joueur* joueur){
+bool jouerCoup(Jeu *jeu,int coup, Joueur *joueur){
     if (!legaliteCoup(jeu, coup)){
         return false;
-    }
+    } 
     
 
     // Stocker le nombre de billes dans la case choisie
@@ -175,7 +171,7 @@ int finPartie(Jeu *jeu){
             for (int i=0;i<6;i++){
                 if (jeu->plateau[i]+i>=6){
                     jeu->scoreJ1+=jeu->billesRestantes;
-                    if (scoreJ2>scoreJ1){
+                    if (jeu->scoreJ2>jeu->scoreJ1){
                         return 1;
                     }else{
                         return 0;
@@ -200,7 +196,7 @@ int finPartie(Jeu *jeu){
             for (int i=6;i<12;i++){
                 if (jeu->plateau[i]+i>11){
                     jeu->scoreJ2+=jeu->billesRestantes;
-                    if (scoreJ2>scoreJ1){
+                    if (jeu->scoreJ2>jeu->scoreJ1){
                         return 1;
                     }else{
                         return 0;

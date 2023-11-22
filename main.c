@@ -12,7 +12,7 @@ int main() {
     Joueur *j2 = createJoueur("Joueur2");
 
     // Affichage des informations du joueur
-    printf("Joueur : %s, Points : %d\n", j1->pseudo);
+    printf("Joueur : %s\n", j1->pseudo);
     Jeu *jeu=initJeu(j1,j2);
 
 
@@ -44,7 +44,12 @@ int main() {
                 scanf("%d", &coup);
             }
         }
-    
+        int fin=finPartie(jeu);
+        if(fin!=-1){
+            jeu->gagnant=fin;
+            jeu->estFini=1;
+            printf("Le gagnant est le joueur: %d\n", jeu->gagnant);
+        }
     };
 
     return 0;
