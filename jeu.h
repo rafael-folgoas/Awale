@@ -1,29 +1,39 @@
-#include "joueur.h"
+#ifndef JEU_H
+#define JEU_H
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <stdbool.h>
+#include "joueur.h"
 
-struct Jeu {
-    int* plateau[12];
+
+typedef struct  {
+    int plateau[12];
     int tour;
     int gagnant;
     int billesRestantes;
-    Joueur joueur1;
-    Joueur joueur2;
+    bool estFini;
+    int scoreJ1;
+    int scoreJ2;
+    Joueur *joueur1;
+    Joueur *joueur2;
 
-};
+}Jeu;
+
 
 //init du plateau 
-void initPlateau(Jeu jeu);
+Jeu* initJeu(Joueur *j1,Joueur *j2);
 
 //afficher tableau 
-void afficherTableau(Jeu jeu );
+void afficherTableau(Jeu *jeu);
 //Choix du premier joueur 
-void randomZeroOrOne(Jeu jeu) ;
+int randomZeroOrOne();
 
 //jouer un coup 
-bool jouerCoup(Jeu jeu,int coup);
+bool jouerCoup(Jeu *jeu,int coup,Joueur* joueur);
 
+bool legaliteCoup(Jeu *jeu,int coup);
 //Fin partie 
 
+
+#endif
