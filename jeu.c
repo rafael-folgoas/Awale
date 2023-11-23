@@ -52,7 +52,6 @@ Jeu* initJeu(Joueur *j1,Joueur *j2){
     for (int i=0;i<12;i++){
         jeu->plateau[i]=4;
     }
-    
     jeu->joueur1=j1;
     jeu->joueur2=j2;
 

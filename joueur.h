@@ -1,5 +1,7 @@
 #ifndef JOUEUR_H
 #define JOUEUR_H
+#include <stdlib.h>
+#include <stdio.h>
 
 typedef struct  {
     char* pseudo;
