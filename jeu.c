@@ -1,13 +1,11 @@
 #include "jeu.h"
 
 int randomZeroOrOne() {
-
     // Initialise le générateur de nombres aléatoires avec le temps actuel
     srand(time(NULL));
 
     // Génère un nombre aléatoire (0 ou 1)
     return rand() % 2;
-    
 }
 
 
@@ -16,7 +14,6 @@ bool jouerCoup(Jeu *jeu,int coup, Joueur *joueur){
         return false;
     } 
     
-
     // Stocker le nombre de billes dans la case choisie
     int billes = jeu->plateau[coup];
 
@@ -24,7 +21,6 @@ bool jouerCoup(Jeu *jeu,int coup, Joueur *joueur){
     jeu->plateau[coup] = 0;
     // Distribuer les billes aux cases suivantes
     for (int i = 1; i <= billes; i++) {
-        
         jeu->plateau[(coup + i) % 12]++;
     }
 
@@ -54,9 +50,7 @@ bool jouerCoup(Jeu *jeu,int coup, Joueur *joueur){
 Jeu* initJeu(Joueur *j1,Joueur *j2){
     Jeu *jeu =(Jeu*)malloc(sizeof(Jeu));
     for (int i=0;i<12;i++){
-      
         jeu->plateau[i]=4;
-        
     }
     
     jeu->joueur1=j1;
@@ -70,8 +64,8 @@ Jeu* initJeu(Joueur *j1,Joueur *j2){
     jeu->scoreJ2=0;
 
     return jeu;
-  
 }
+
 bool legaliteCoup(Jeu *jeu,int coup){
     
     if(jeu->tour==1&&coup<6){
@@ -94,7 +88,7 @@ bool legaliteCoup(Jeu *jeu,int coup){
             case1++;
         }
         if(vide){
-            if( coup+jeu->plateau[coup]<=5){
+            if(coup+jeu->plateau[coup]<=5){ //cas de famine de l'adversaire
                 return false;
             }
         }
@@ -110,13 +104,12 @@ bool legaliteCoup(Jeu *jeu,int coup){
             case2++;
         }
         if(vide){
-            if(coup+jeu->plateau[coup]<=11){
+            if(coup+jeu->plateau[coup]<=11){ //cas de famine de l'adversaire
                 return false;
             }
         }
     }
     return true;
-
 }
 
 void afficherTableau(Jeu *jeu) {
@@ -178,7 +171,6 @@ int finPartie(Jeu *jeu){
                     }
                 }
             }
-            
             return 0;
         }
     }
@@ -205,7 +197,6 @@ int finPartie(Jeu *jeu){
             }
         }
     }
-
 
     return -1;
 }
