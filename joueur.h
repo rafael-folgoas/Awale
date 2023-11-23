@@ -12,5 +12,6 @@ typedef struct  {
 
 // Prototype de la fonction pour créer un joueur
 Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio);
-
+void creerFiles(const char *pseudo);
+void destroyJoueur(Joueur* joueur);
 #endif

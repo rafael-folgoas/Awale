@@ -23,11 +23,14 @@ typedef struct  {
 
 //init du plateau 
 Jeu* initJeu(Joueur *j1,Joueur *j2);
-
+void enregistrerCoupHistorique(Jeu *jeu,Joueur* joueur, int coup);
 //afficher tableau 
-void afficherTableau(Jeu *jeu);
+char* afficherTableau(Jeu *jeu);
 //Choix du premier joueur 
 int randomZeroOrOne();
+
+void ecrireDebutPartieHistoJoueur(Jeu *jeu);
+void ecrireFinPartieHistoJoueur(Jeu *jeu);
 
 //jouer un coup 
 bool jouerCoup(Jeu *jeu,int coup,Joueur* joueur);

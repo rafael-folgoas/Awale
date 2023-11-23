@@ -10,55 +10,6 @@ Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio) {
     
     Joueur *joueur = (Joueur*)malloc(sizeof(Joueur));
 
-    //Creation du dossier du joueur 
-    char dossier[strlen(pseudo)+1];
-    strcpy(dossier,pseudo);
-
-    // Utilisation de mkdir pour créer le dossier
-    if (mkdir(dossier, 0777) == -1) {
-        if (errno == EEXIST) {
-            printf("Le dossier existe déjà.\n");
-        } else {
-            fprintf(stderr, "Erreur lors de la création du dossier.\n");
-            perror("Erreur");
-            exit(EXIT_FAILURE);
-        }
-    } else {
-        printf("Dossier créé avec succès.\n");
-    }
-
-    //création des fichiers des joueurs
-    //infos
-    FILE* fichierI; 
-    char nomFichI[strlen(dossier) + sizeof("/infos.txt")];
-    strcpy(nomFichI, dossier);
-    strcat(nomFichI, "/infos.txt");
-    fichierI = fopen(nomFichI, "a");
-    if (fichierI == NULL) {
-        perror("Erreur lors de l'ouverture du fichier");
-        exit(EXIT_FAILURE);
-    }
-    // Écrire les infos dans le fichier
-    fprintf(fichierI, "Pseudo: %s\n", pseudo);
-    fprintf(fichierI, "Mot de passe: %s\n", mdp);
-    fprintf(fichierI, "Bio: %s\n", bio);
-    
-    fclose(fichierI);
-
-    //historique parties
-    FILE* fichierH; 
-    char nomFichH[strlen(dossier) + sizeof("/historiqueParties.txt")];
-    strcpy(nomFichH, dossier);
-    strcat(nomFichH, "/historiqueParties.txt");
-    fichierH = fopen(nomFichH, "a");
-    if (fichierH == NULL) {
-        perror("Erreur lors de l'ouverture du fichier");
-        exit(EXIT_FAILURE);
-    }
-    joueur->historiqueParties = fichierH;
-    fclose(fichierH);
-
-
     if (joueur != NULL) {
         // Allocation dynamique pour la chaîne de caractères du pseudo et mdp
         joueur->pseudo = (char*)malloc((strlen(pseudo) + 1) * sizeof(char));
@@ -86,8 +37,80 @@ Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio) {
             joueur->bio = NULL;  // bio est NULL si n'existe pas
         }
     }
+    creerFiles(joueur->pseudo);
+    remplirFileJoueur(joueur);
     return joueur;
 }
 
+void remplirFileJoueur(Joueur *joueur){
+    FILE* fichierJoueurs;
+    fichierJoueurs = fopen("data/joueurs.txt", "a");
+
+    if (fichierJoueurs == NULL) {
+        perror("Erreur lors de l'ouverture du fichier");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(fichierJoueurs, "%s %s %s\n", joueur->pseudo, joueur->mdp, joueur->bio);
+    printf("Nouveau joueur enregistré avec succès.\n");
+    fclose(fichierJoueurs);
+}
+void creerFiles(const char *pseudo) {
+    //Creation du dossier data
+    if (mkdir("data", 0777) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr, "Erreur lors de la création du dossier.\n");
+            perror("Erreur");
+            exit(EXIT_FAILURE);
+        }
+    }
+    // Création du chemin du dossier du joueur
+    char dossierPath[strlen("data/") + strlen(pseudo) + 1];
+    sprintf(dossierPath, "data/%s", pseudo);
+
+    // Création du chemin du fichier historiquesPartie.txt
+    char historiquesPath[strlen(dossierPath) + strlen("/historiquesParties.txt") + 1];
+    sprintf(historiquesPath, "%s/historiquesParties.txt", dossierPath);
+
+    // Création du chemin du fichier infos.txt
+    char infosPath[strlen(dossierPath) + strlen("/infos.txt") + 1];
+    sprintf(infosPath, "%s/infos.txt", dossierPath);
+
+    // Utilisation de mkdir pour créer le dossier
+    if (mkdir(dossierPath, 0777) == -1) {
+        if (errno != EEXIST) {
+            fprintf(stderr, "Erreur lors de la création du dossier.\n");
+            perror("Erreur");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Création des fichiers
+    FILE *historiquesFile = fopen(historiquesPath, "a");
+    if (historiquesFile == NULL) {
+        fprintf(stderr, "Erreur lors de la création du fichier historiquesParties.txt.\n");
+        perror("Erreur");
+        exit(EXIT_FAILURE);
+    }
+    fclose(historiquesFile);
+
+    FILE *infosFile = fopen(infosPath, "a");
+    if (infosFile == NULL) {
+        fprintf(stderr, "Erreur lors de la création du fichier infos.txt.\n");
+        perror("Erreur");
+        exit(EXIT_FAILURE);
+    }
+    fclose(infosFile);
+
+    printf("Dossier et fichiers créés avec succès.\n");
+}
 
 
+// Fonction pour libérer la mémoire allouée pour le joueur
+void destroyJoueur(Joueur* joueur) {
+    free(joueur->pseudo);
+    free(joueur->mdp);
+    free(joueur->bio);
+    fclose(joueur->historiqueParties);
+    free(joueur);
+}
