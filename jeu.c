@@ -3,7 +3,7 @@
 int randomZeroOrOne() {
     // Initialise le générateur de nombres aléatoires avec le temps actuel
     srand(time(NULL));
-
+    //test
     // Génère un nombre aléatoire (0 ou 1)
     return rand() % 2;
 }
