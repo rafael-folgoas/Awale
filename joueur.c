@@ -5,6 +5,15 @@
 
 Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio) {
     Joueur *joueur = (Joueur*)malloc(sizeof(Joueur));
+    //Creation du fichier joueur 
+    FILE* fichier;
+    fichier = fopen(pseudo+"-historiquesParties-.txt", "a");
+    if (fichier == NULL) {
+        perror("Erreur lors de l'ouverture du fichier");
+        exit(EXIT_FAILURE);
+    }
+    joueur->historiqueParties = fichier;
+    fclose(fichier);
 
     if (joueur != NULL) {
         // Allocation dynamique pour la chaîne de caractères du pseudo et mdp

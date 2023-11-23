@@ -5,6 +5,7 @@ typedef struct  {
     char* pseudo;
     char* mdp;
     char* bio;
+    FILE* historiqueParties;
 }Joueur;
 
 // Prototype de la fonction pour créer un joueur
