@@ -7,11 +7,12 @@ typedef struct  {
     char* pseudo;
     char* mdp;
     char* bio;
-    FILE* historiqueParties;
 }Joueur;
 
 // Prototype de la fonction pour créer un joueur
 Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio);
 void creerFiles(const char *pseudo);
 void destroyJoueur(Joueur* joueur);
+void remplirFileJoueur(Joueur *joueur);
+void remplirInfosJoueur(Joueur *joueur);
 #endif

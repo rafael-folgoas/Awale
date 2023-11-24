@@ -39,6 +39,7 @@ Joueur* createJoueur(const char* pseudo, const char* mdp, char* bio) {
     }
     creerFiles(joueur->pseudo);
     remplirFileJoueur(joueur);
+    remplirInfosJoueur(joueur);
     return joueur;
 }
 
@@ -55,6 +56,25 @@ void remplirFileJoueur(Joueur *joueur){
     printf("Nouveau joueur enregistré avec succès.\n");
     fclose(fichierJoueurs);
 }
+
+void remplirInfosJoueur(Joueur *joueur){
+    FILE* infosJoueur;
+    char infoPath[strlen("data/") + strlen(joueur->pseudo) + strlen("/infos.txt") + 1];
+    sprintf(infoPath, "data/%s/infos.txt", joueur->pseudo);
+
+    infosJoueur = fopen(infoPath, "a");
+
+    if (infosJoueur == NULL) {
+        perror("Erreur lors de l'ouverture du fichier");
+        exit(EXIT_FAILURE);
+    }
+
+    fprintf(infosJoueur, "Pseudo : %s\n", joueur->pseudo);
+    fprintf(infosJoueur, "Mdp : %s\n", joueur->mdp);
+    fprintf(infosJoueur, "Bio : %s\n", joueur->bio);
+    fclose(infosJoueur);
+}
+
 void creerFiles(const char *pseudo) {
     //Creation du dossier data
     if (mkdir("data", 0777) == -1) {
