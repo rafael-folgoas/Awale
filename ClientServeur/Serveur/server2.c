@@ -115,7 +115,7 @@ static void app(void)
          c.etat = 0;
          c.confidentialitePublique = true;
          // c.inscrit=0;
-         c.sauvegarde = 0;
+         c.sauvegardeMode = false;
          strncpy(c.bio, "", 500);
          c.sock = csock;
 
@@ -165,6 +165,7 @@ enum EtatClient
    ETAT_INVITATION_PARTIE = 5,
    ETAT_ECRIRE_BIO = 8,
    ETAT_VOIR_BIO = 9,
+   ETAT_MESSAGE = 11,
    ETAT_ATTENTE_REPONSE_INVITATION = 20,
    // Ajoute d'autres états au besoin
 };
@@ -195,6 +196,10 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          write_client(client->sock, "Entrez les pseudos de vos amis un par un (exemple rafael [ENTRER] laziza [ENTRER] puis appuyer sur y [ENTRER] terminer\n");
          client->etat = ETAT_AJOUTER_AMI;
       }
+      else if (strcmp(buffer, "6") == 0)
+      {
+         changementSauvegardeMode(client);
+      }
       else if (strcmp(buffer, "8") == 0)
       {
          client->etat = ETAT_ECRIRE_BIO;
@@ -216,12 +221,20 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          afficherListeAmis(client);
          menu(*client);
       }
+      else if (strcmp(buffer, "11") == 0)
+      {
+         write_client(client->sock, "Chat : \nPour envoyer un message écrivez le nom de l'utilisateur puis le message sous cette forme : \n nom-destinataire:message \n");
+         write_client(client->sock, "(pour quiter tappez q) \n");
+         client->etat = ETAT_MESSAGE;
+      }
       else if (strcmp(buffer, "100") == 0)
       {
          write_client(client->sock, "Foncion de test : \n");
       }
       else
       {
+
+         write_client(client->sock, "Commande non reconnue. \n");
          client->etat = ETAT_MENU;
          menu(*client);
       }
@@ -267,12 +280,15 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          client->etat = 0;
          menu(*client);
       }
-      else if (strcmp(buffer, "p") == 0)
+      else if (strcmp(buffer, "message") == 0)
       {
          write_client(client->sock, "Chat : pour envoyer un message écrivez le nom de l'utilisateur puis le message sous cette forme : \n<nom_utilisateur_destinataire>:<message> \n");
          write_client(client->sock, "pour quiter tappez quit \n");
          // client->etat = message mode;
       }
+      break;
+   case ETAT_MESSAGE:
+      envoyerMessage(clients, client, actual, buffer);
       break;
    default:
       client->etat = ETAT_MENU;
@@ -284,17 +300,61 @@ static void menu(Client c)
 {
 
    write_client(c.sock, "Menu : \n");
-   write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n");
-   write_client(c.sock, "2. Inviter un joueur pour une patie. \n");
+   write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n"); // done
+   write_client(c.sock, "2. Inviter un joueur pour une patie. \n");    // debut seulement
    write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n");
-   write_client(c.sock, "4. Passer en mode partie privee/public. \n");
-   write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n");
-   write_client(c.sock, "6. Sauvegarder la prochaine partie. \n");
-   write_client(c.sock, "7. Revisionner la partie sauvegardee. \n");
-   write_client(c.sock, "8. Ecrire sa bio. \n");
-   write_client(c.sock, "9. Voir la bio d'un autre joueur. \n");
-   write_client(c.sock, "10. Afficher liste d'amis. \n");
+   write_client(c.sock, "4. Passer en mode partie privee/public. \n");                        // done
+   write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); // done
+   write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");                      // done
+   write_client(c.sock, "7. Revisionner une partie sauvegardee. \n");
+   write_client(c.sock, "8. Ecrire sa bio. \n");                 // done
+   write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); // done
+   write_client(c.sock, "10. Afficher liste d'amis. \n");        // done
    write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");
+}
+static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer)
+{
+   char destinataire[BUF_SIZE];
+   char message[BUF_SIZE];
+   if (strcmp(buffer, "q") == 0)
+   {
+      sender->etat = ETAT_MENU;
+      menu(*sender);
+      return;
+   }
+   sscanf(buffer, "%[^:]:%[^\n]", destinataire, message);
+   if (strcmp(message, "") == 0)
+   {
+      write_client(sender->sock, "Format incorrect : nom-destinataire:message \n");
+      return;
+   }
+   bool destinataireTrouve = false;
+   for (int i = 0; i < actual; i++)
+   {
+      if (strcmp(clients[i].name, destinataire) == 0)
+      {
+         destinataireTrouve = true;
+
+         write_client(clients[i].sock, "[Message de ");
+         write_client(clients[i].sock, sender->name);
+         write_client(clients[i].sock, "] ");
+         write_client(clients[i].sock, message);
+         write_client(clients[i].sock, "\n");
+
+         write_client(sender->sock, "[Message envoye a ");
+         write_client(sender->sock, destinataire);
+         write_client(sender->sock, "] ");
+         write_client(sender->sock, message);
+         write_client(sender->sock, "\n");
+         break;
+      }
+   }
+
+   // Si le destinataire n'est pas trouvé, envoyer un message d'erreur à l'expéditeur
+   if (!destinataireTrouve)
+   {
+      write_client(sender->sock, "Le destinataire n'existe pas ou n'est pas en ligne.\n");
+   }
 }
 
 static void changementConfidentialite(Client *client)
@@ -308,6 +368,21 @@ static void changementConfidentialite(Client *client)
    {
       client->confidentialitePublique = true;
       write_client(client->sock, "Vous etes en mode public. \n");
+   }
+   client->etat = ETAT_MENU;
+   menu(*client);
+}
+static void changementSauvegardeMode(Client *client)
+{
+   if (client->sauvegardeMode)
+   {
+      client->sauvegardeMode = false;
+      write_client(client->sock, "Vous etes en mode sauvegarde. \n");
+   }
+   else
+   {
+      client->sauvegardeMode = true;
+      write_client(client->sock, "Vous etes en mode non sauvegarde. \n");
    }
    client->etat = ETAT_MENU;
    menu(*client);

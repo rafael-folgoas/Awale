@@ -49,4 +49,7 @@ static void afficherListeAmis(Client *client);
 static void ajouterAmi(Client *client, Client *clients, int actual, const char *buffer);
 static void voirBioJoueur(Client *clients, Client *client, int actual, char *nom);
 static void changementConfidentialite(Client *client);
+static void changementSauvegardeMode(Client *client);
+static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer);
+
 #endif /* guard */

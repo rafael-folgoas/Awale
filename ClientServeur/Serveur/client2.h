@@ -13,7 +13,7 @@ typedef struct
    // int inscrit;
    struct Client *amis[50];
    bool confidentialitePublique;
-   int sauvegarde;
+   bool sauvegardeMode;
 
 } Client;
 
