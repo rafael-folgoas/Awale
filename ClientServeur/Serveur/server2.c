@@ -112,7 +112,7 @@ static void app(void)
          Client c;
          strncpy(c.name, buffer, BUF_SIZE - 1);
          c.adversaire = NULL;
-         c.etat = 0;
+         c.etat = ETAT_MENU;
          c.confidentialitePublique = true;
          // c.inscrit=0;
          c.sauvegardeMode = false;
@@ -157,18 +157,6 @@ static void app(void)
    clear_clients(clients, actual);
    end_connection(sock);
 }
-// Déclaration de l'énumération
-enum EtatClient
-{
-   ETAT_MENU = 0,
-   ETAT_AJOUTER_AMI = 4,
-   ETAT_INVITATION_PARTIE = 5,
-   ETAT_ECRIRE_BIO = 8,
-   ETAT_VOIR_BIO = 9,
-   ETAT_MESSAGE = 11,
-   ETAT_ATTENTE_REPONSE_INVITATION = 20,
-   // Ajoute d'autres états au besoin
-};
 
 // Fonction pour gérer l'état du client
 void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
@@ -482,7 +470,7 @@ static void afficherListeJoueursEnLigne(Client *clients, Client client, int actu
    }
    else
    {
-      write_client(client.sock, "Liste des joueurs en ligne : ");
+      write_client(client.sock, "Liste des joueurs en ligne : \n");
       for (int i = 0; i < actual; i++)
       {
          if (client.sock != clients[i].sock)
