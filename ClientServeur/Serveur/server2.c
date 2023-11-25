@@ -6,13 +6,14 @@
 
 #include "server2.h"
 #include "client2.h"
+#include <sys/select.h>
 
 static void init(void)
 {
 #ifdef WIN32
    WSADATA wsa;
    int err = WSAStartup(MAKEWORD(2, 2), &wsa);
-   if(err < 0)
+   if (err < 0)
    {
       puts("WSAStartup failed !");
       exit(EXIT_FAILURE);
@@ -34,12 +35,13 @@ static void app(void)
    /* the index for the array */
    int actual = 0;
    int max = sock;
+
    /* an array for all clients */
    Client clients[MAX_CLIENTS];
 
    fd_set rdfs;
 
-   while(1)
+   while (1)
    {
       int i = 0;
       FD_ZERO(&rdfs);
@@ -51,67 +53,72 @@ static void app(void)
       FD_SET(sock, &rdfs);
 
       /* add socket of each client */
-      for(i = 0; i < actual; i++)
+      for (i = 0; i < actual; i++)
       {
          FD_SET(clients[i].sock, &rdfs);
       }
 
-      if(select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
+      if (select(max + 1, &rdfs, NULL, NULL, NULL) == -1)
       {
          perror("select()");
          exit(errno);
       }
 
       /* something from standard input : i.e keyboard */
-      if(FD_ISSET(STDIN_FILENO, &rdfs))
+      if (FD_ISSET(STDIN_FILENO, &rdfs))
       {
          /* stop process when type on keyboard */
          break;
       }
-      else if(FD_ISSET(sock, &rdfs))
+      else if (FD_ISSET(sock, &rdfs))
       {
          /* new client */
-         SOCKADDR_IN csin = { 0 };
+         SOCKADDR_IN csin = {0};
          size_t sinsize = sizeof csin;
          int csock = accept(sock, (SOCKADDR *)&csin, &sinsize);
-         if(csock == SOCKET_ERROR)
+         if (csock == SOCKET_ERROR)
          {
             perror("accept()");
             continue;
          }
          /* after connecting the client sends its name */
-         if(read_client(csock, buffer) == -1)
+         if (read_client(csock, buffer) == -1)
          {
             /* disconnected */
             continue;
          }
 
-         
-         //verifier dispo pseudo
-         bool dispo=true;
-         for(int i=0;i<actual;i++){
-            if(strcmp(clients[i].name,buffer)==0){
-               dispo=false;
+         // verifier dispo pseudo
+         bool dispo = true;
+         for (int i = 0; i < actual; i++)
+         {
+            if (strcmp(clients[i].name, buffer) == 0)
+            {
+               dispo = false;
             }
          }
-         if(!dispo){
-            write_client(csock,"Pseudo non disponible, essayez avec un autre");
+         if (!dispo)
+         {
+            write_client(csock, "Pseudo non disponible, essayez avec un autre");
             closesocket(csock);
             continue;
          }
-         
-
 
          /* what is the new maximum fd ? */
          max = csock > max ? csock : max;
 
          FD_SET(csock, &rdfs);
 
-         Client c ;
-         c.sock= csock;
+         Client c;
          strncpy(c.name, buffer, BUF_SIZE - 1);
-         c.etat=0;
-         strncpy(c.bio,"",500);
+         c.adversaire = NULL;
+         c.etat = 0;
+         c.confidentialitePublique = true;
+         // c.inscrit=0;
+         c.sauvegarde = 0;
+         strncpy(c.bio, "", 500);
+         c.sock = csock;
+
          clients[actual] = c;
          menu(clients[actual]);
          actual++;
@@ -119,15 +126,15 @@ static void app(void)
       else
       {
          int i = 0;
-         for(i = 0; i < actual; i++)
+         for (i = 0; i < actual; i++)
          {
             /* a client is talking */
-            if(FD_ISSET(clients[i].sock, &rdfs))
+            if (FD_ISSET(clients[i].sock, &rdfs))
             {
                Client *client = &clients[i];
                int c = read_client(clients[i].sock, buffer);
                /* client disconnected */
-               if(c == 0)
+               if (c == 0)
                {
                   closesocket(clients[i].sock);
                   remove_client(clients, i, &actual);
@@ -137,30 +144,10 @@ static void app(void)
                }
                else
                {
-                  //send_message_to_all_clients(clients, client, actual, buffer, 0);
-                  if(client->etat==0){
-                     if (strcmp(buffer,"1")==0){ //afficher liste joueurs online
-                        afficherListeJoueursEnLigne(clients,*client,actual);
-                        menu(*client);
-                     }
-                     else if (strcmp(buffer,"2")==0){ //défier joueur
-                        //client->etat=5;
-                     }
-                     else if (strcmp(buffer,"8")==0){ //écrire sa bio
-                        client->etat=8;
-                        write_client(client->sock, "Ecrivez votre bio : \n");
-                     }
-                     
-                  }else if (client->etat==8){
-                     strncpy(client->bio,buffer,BUF_SIZE);
-                     client->etat=0;
-                     menu(*client);
-                  }else{
-                     client->etat=0;
-                     menu(*client);
-                  }
+                  // send_message_to_all_clients(clients, client, actual, buffer, 0);
+                  gestionEtat(client, buffer, clients, actual);
                }
-               
+
                break;
             }
          }
@@ -170,39 +157,293 @@ static void app(void)
    clear_clients(clients, actual);
    end_connection(sock);
 }
-static void menu(Client c){
+// Déclaration de l'énumération
+enum EtatClient
+{
+   ETAT_MENU = 0,
+   ETAT_AJOUTER_AMI = 4,
+   ETAT_INVITATION_PARTIE = 5,
+   ETAT_ECRIRE_BIO = 8,
+   ETAT_VOIR_BIO = 9,
+   ETAT_ATTENTE_REPONSE_INVITATION = 20,
+   // Ajoute d'autres états au besoin
+};
+
+// Fonction pour gérer l'état du client
+void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
+{
+   switch (client->etat)
+   {
+   case ETAT_MENU:
+
+      if (strcmp(buffer, "1") == 0)
+      {
+         afficherListeJoueursEnLigne(clients, *client, actual);
+         menu(*client);
+      }
+      else if (strcmp(buffer, "2") == 0)
+      {
+         write_client(client->sock, "Entrer le nom du joueur que vous voulez inviter : \n");
+         client->etat = ETAT_INVITATION_PARTIE;
+      }
+      else if (strcmp(buffer, "4") == 0)
+      {
+         changementConfidentialite(client);
+      }
+      else if (strcmp(buffer, "5") == 0)
+      {
+         write_client(client->sock, "Entrez les pseudos de vos amis un par un (exemple rafael [ENTRER] laziza [ENTRER] puis appuyer sur y [ENTRER] terminer\n");
+         client->etat = ETAT_AJOUTER_AMI;
+      }
+      else if (strcmp(buffer, "8") == 0)
+      {
+         client->etat = ETAT_ECRIRE_BIO;
+         write_client(client->sock, "Ecrivez votre bio : \n");
+      }
+      else if (strcmp(buffer, "9") == 0)
+      {
+         write_client(client->sock, "Entrez le nom du joueur dont vous voulez voir la bio : \n");
+         client->etat = 9;
+      }
+      else if (client->adversaire != NULL && strcmp(buffer, "0") == 0)
+      {
+         write_client(client->sock, "1-Accepter la demande : \n");
+         write_client(client->sock, "2-Refuser la demande \n");
+         client->etat = 6;
+      }
+      else if (strcmp(buffer, "10") == 0)
+      {
+         afficherListeAmis(client);
+         menu(*client);
+      }
+      else if (strcmp(buffer, "100") == 0)
+      {
+         write_client(client->sock, "Foncion de test : \n");
+      }
+      else
+      {
+         client->etat = ETAT_MENU;
+         menu(*client);
+      }
+      break;
+
+   case ETAT_ECRIRE_BIO:
+      strncpy(client->bio, buffer, BUF_SIZE);
+      client->etat = ETAT_MENU;
+      menu(*client);
+      break;
+
+   case ETAT_AJOUTER_AMI:
+
+      ajouterAmi(client, clients, actual, buffer);
+
+      break;
+   case ETAT_VOIR_BIO:
+      if (strcmp(buffer, "q") == 0)
+      {
+         client->etat = 0;
+         menu(*client);
+      }
+      else
+      {
+         voirBioJoueur(clients, client, actual, buffer);
+      }
+      break;
+   case ETAT_INVITATION_PARTIE:
+      if (strcmp(buffer, "q") == 0)
+      {
+         client->etat = 0;
+         menu(*client);
+      }
+      else
+      {
+         invitationPartie(clients, client, actual, buffer);
+      }
+      break;
+
+   case ETAT_ATTENTE_REPONSE_INVITATION:
+      if (strcmp(buffer, "q") == 0)
+      {
+         client->etat = 0;
+         menu(*client);
+      }
+      else if (strcmp(buffer, "p") == 0)
+      {
+         write_client(client->sock, "Chat : pour envoyer un message écrivez le nom de l'utilisateur puis le message sous cette forme : \n<nom_utilisateur_destinataire>:<message> \n");
+         write_client(client->sock, "pour quiter tappez quit \n");
+         // client->etat = message mode;
+      }
+      break;
+   default:
+      client->etat = ETAT_MENU;
+      menu(*client);
+      break;
+   }
+}
+static void menu(Client c)
+{
 
    write_client(c.sock, "Menu : \n");
    write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n");
-   write_client(c.sock, "2. Defier un joueur. \n");
+   write_client(c.sock, "2. Inviter un joueur pour une patie. \n");
    write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n");
-   write_client(c.sock, "4. Definir une liste d'ami pouvant visionner ma partie privee. \n");
-   write_client(c.sock, "5. Passer en mode partie privee/public. \n");
+   write_client(c.sock, "4. Passer en mode partie privee/public. \n");
+   write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n");
    write_client(c.sock, "6. Sauvegarder la prochaine partie. \n");
    write_client(c.sock, "7. Revisionner la partie sauvegardee. \n");
    write_client(c.sock, "8. Ecrire sa bio. \n");
    write_client(c.sock, "9. Voir la bio d'un autre joueur. \n");
-   write_client(c.sock, "p. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");
-
+   write_client(c.sock, "10. Afficher liste d'amis. \n");
+   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");
 }
 
-static void afficherListeJoueursEnLigne(Client* clients, Client client, int actual){
-   write_client(client.sock, "Liste des joueurs en ligne : ");
-   for(int i = 0; i < actual; i++){
-      if(client.sock != clients[i].sock){
-         write_client(client.sock, "-");
-         write_client(client.sock, clients[i].name);
-         write_client(client.sock, "\n");
+static void changementConfidentialite(Client *client)
+{
+   if (client->confidentialitePublique)
+   {
+      client->confidentialitePublique = false;
+      write_client(client->sock, "Vous etes en mode privee. \n");
+   }
+   else
+   {
+      client->confidentialitePublique = true;
+      write_client(client->sock, "Vous etes en mode public. \n");
+   }
+   client->etat = ETAT_MENU;
+   menu(*client);
+}
+// Fonction pour afficher la liste d'amis d'un client
+static void afficherListeAmis(Client *client)
+{
+   write_client(client->sock, "Liste de vos amis : \n");
+
+   for (int i = 0; i < 50; i++)
+   {
+      Client *ami = client->amis[i];
+      if (ami != NULL)
+      {
+         write_client(client->sock, "-");
+         write_client(client->sock, ami->name);
+         write_client(client->sock, "\n");
       }
    }
-   
-   
+}
+static void voirBioJoueur(Client *clients, Client *client, int actual, char *nom)
+{
+   bool trouve = false;
+   for (int i = 0; i < actual; i++)
+   {
+      if (strcmp(clients[i].name, nom) == 0)
+      {
+         write_client(client->sock, "Bio de ");
+         write_client(client->sock, clients[i].name);
+         write_client(client->sock, " : \n");
+         write_client(client->sock, clients[i].bio);
+         write_client(client->sock, "\n\n");
+         trouve = true;
+         break;
+      }
+   }
+   if (!trouve)
+   {
+      write_client(client->sock, "Le joueur n'existe pas ou n'est pas en ligne. Reessayez ou appuyez sur q pour quitter \n");
+   }
+   else
+   {
+      client->etat = ETAT_MENU;
+      menu(*client);
+   }
+}
+// Fonction pour ajouter un ami
+static void ajouterAmi(Client *client, Client *clients, int actual, const char *buffer)
+{
+   if (strcmp(buffer, "y") == 0 || strcmp(buffer, "q") == 0) // retour a l'etat menu
+   {
+      client->etat = ETAT_MENU;
+      menu(*client);
+   }
+   else
+   {
+      bool trouve = false;
+      bool plusDePlace = true;
+      for (int i = 0; i < actual; i++)
+      {
+         if (strcmp(clients[i].name, buffer) == 0)
+         {
+            trouve = true;
+            for (int j = 0; j < 50; j++)
+            {
+               if (client->amis[j] == NULL)
+               {
+                  client->amis[j] = &clients[i];
+                  plusDePlace = false;
+                  break; // Ajout d'un break pour éviter de continuer la recherche après avoir trouvé une place
+               }
+            }
+         }
+      }
+
+      if (!trouve)
+      {
+         write_client(client->sock, "Le joueur n'existe pas ou n'est pas en ligne. \n");
+      }
+      else if (plusDePlace)
+      {
+         write_client(client->sock, "Vous avez atteint le nombre maximum d'amis. \n");
+      }
+      else
+      {
+         write_client(client->sock, "Ami ajoute avec succes. \n");
+      }
+   }
+}
+
+static void afficherListeJoueursEnLigne(Client *clients, Client client, int actual)
+{
+   if (actual == 1)
+   {
+      write_client(client.sock, "Vous etes le seul joueur en ligne. \n");
+      return;
+   }
+   else
+   {
+      write_client(client.sock, "Liste des joueurs en ligne : ");
+      for (int i = 0; i < actual; i++)
+      {
+         if (client.sock != clients[i].sock)
+         {
+            write_client(client.sock, "-");
+            write_client(client.sock, clients[i].name);
+            write_client(client.sock, "\n");
+         }
+      }
+   }
+}
+
+static void invitationPartie(Client *clients, Client *client, int actual, char *nom)
+{
+
+   for (int i = 0; i < actual; i++)
+   {
+      if ((strcmp(clients[i].name, nom) == 0) && strcmp(clients[i].name, client->name) != 0)
+      {
+         write_client(clients[i].sock, client->name);
+         write_client(clients[i].sock, " Vous invites pour une partie. \nTaper 1 pour accepter - 2 pour refuser\n");
+         clients[i].adversaire = client;
+         client->etat = ETAT_ATTENTE_REPONSE_INVITATION;
+         break;
+      }
+   }
+   if (client->etat != ETAT_ATTENTE_REPONSE_INVITATION)
+   {
+      write_client(client->sock, "Le joueur n'existe pas ou n'est pas en ligne. \n");
+   }
 }
 
 static void clear_clients(Client *clients, int actual)
 {
    int i = 0;
-   for(i = 0; i < actual; i++)
+   for (i = 0; i < actual; i++)
    {
       closesocket(clients[i].sock);
    }
@@ -221,12 +462,12 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
    int i = 0;
    char message[BUF_SIZE];
    message[0] = 0;
-   for(i = 0; i < actual; i++)
+   for (i = 0; i < actual; i++)
    {
       /* we don't send message to the sender */
-      if(sender.sock != clients[i].sock)
+      if (sender.sock != clients[i].sock)
       {
-         if(from_server == 0)
+         if (from_server == 0)
          {
             strncpy(message, sender.name, BUF_SIZE - 1);
             strncat(message, " : ", sizeof message - strlen(message) - 1);
@@ -240,9 +481,9 @@ static void send_message_to_all_clients(Client *clients, Client sender, int actu
 static int init_connection(void)
 {
    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-   SOCKADDR_IN sin = { 0 };
+   SOCKADDR_IN sin = {0};
 
-   if(sock == INVALID_SOCKET)
+   if (sock == INVALID_SOCKET)
    {
       perror("socket()");
       exit(errno);
@@ -252,13 +493,13 @@ static int init_connection(void)
    sin.sin_port = htons(PORT);
    sin.sin_family = AF_INET;
 
-   if(bind(sock,(SOCKADDR *) &sin, sizeof sin) == SOCKET_ERROR)
+   if (bind(sock, (SOCKADDR *)&sin, sizeof sin) == SOCKET_ERROR)
    {
       perror("bind()");
       exit(errno);
    }
 
-   if(listen(sock, MAX_CLIENTS) == SOCKET_ERROR)
+   if (listen(sock, MAX_CLIENTS) == SOCKET_ERROR)
    {
       perror("listen()");
       exit(errno);
@@ -276,7 +517,7 @@ static int read_client(SOCKET sock, char *buffer)
 {
    int n = 0;
 
-   if((n = recv(sock, buffer, BUF_SIZE - 1, 0)) < 0)
+   if ((n = recv(sock, buffer, BUF_SIZE - 1, 0)) < 0)
    {
       perror("recv()");
       /* if recv error we disonnect the client */
@@ -290,7 +531,7 @@ static int read_client(SOCKET sock, char *buffer)
 
 static void write_client(SOCKET sock, const char *buffer)
 {
-   if(send(sock, buffer, strlen(buffer), 0) < 0)
+   if (send(sock, buffer, strlen(buffer), 0) < 0)
    {
       perror("send()");
       exit(errno);
@@ -307,8 +548,3 @@ int main(int argc, char **argv)
 
    return EXIT_SUCCESS;
 }
-
-
-
-
-

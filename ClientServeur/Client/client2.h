@@ -12,7 +12,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h> /* close */
-#include <netdb.h> /* gethostbyname */
+#include <netdb.h>  /* gethostbyname */
 #define INVALID_SOCKET -1
 #define SOCKET_ERROR -1
 #define closesocket(s) close(s)
@@ -23,8 +23,8 @@ typedef struct in_addr IN_ADDR;
 
 #endif
 
-#define CRLF     "\r\n"
-#define PORT     1977
+#define CRLF "\r\n"
+#define PORT 1977
 
 #define BUF_SIZE 1024
 

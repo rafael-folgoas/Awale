@@ -9,7 +9,12 @@ typedef struct
    char name[BUF_SIZE];
    int etat;
    char bio[800];
+   struct Client *adversaire;
+   // int inscrit;
+   struct Client *amis[50];
+   bool confidentialitePublique;
+   int sauvegarde;
 
-}Client;
+} Client;
 
 #endif /* guard */
