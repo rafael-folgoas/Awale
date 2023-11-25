@@ -116,7 +116,7 @@ static void app(void)
          c.confidentialitePublique = true;
          // c.inscrit=0;
          c.sauvegardeMode = false;
-         strncpy(c.bio, "", 500);
+         strncpy(c.bio,"", 800);
          c.sock = csock;
 
          clients[actual] = c;
@@ -196,7 +196,7 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       else if (strcmp(buffer, "9") == 0)
       {
          write_client(client->sock, "Entrez le nom du joueur dont vous voulez voir la bio : \n");
-         client->etat = 9;
+         client->etat = ETAT_VOIR_BIO;
       }
       else if (client->adversaire != NULL && strcmp(buffer, "0") == 0)
       {
@@ -221,7 +221,6 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       }
       else
       {
-
          write_client(client->sock, "Commande non reconnue. \n");
          client->etat = ETAT_MENU;
          menu(*client);
@@ -229,16 +228,16 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       break;
 
    case ETAT_ECRIRE_BIO:
-      strncpy(client->bio, buffer, BUF_SIZE);
+      strncpy(client->bio, buffer, 799);
+      write_client(client->sock,"Votre bio a bien été modifiée !\r\n"); 
       client->etat = ETAT_MENU;
       menu(*client);
       break;
 
    case ETAT_AJOUTER_AMI:
-
       ajouterAmi(client, clients, actual, buffer);
-
       break;
+
    case ETAT_VOIR_BIO:
       if (strcmp(buffer, "q") == 0)
       {
@@ -250,6 +249,7 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          voirBioJoueur(clients, client, actual, buffer);
       }
       break;
+
    case ETAT_INVITATION_PARTIE:
       if (strcmp(buffer, "q") == 0)
       {
@@ -398,13 +398,19 @@ static void voirBioJoueur(Client *clients, Client *client, int actual, char *nom
    {
       if (strcmp(clients[i].name, nom) == 0)
       {
-         write_client(client->sock, "Bio de ");
-         write_client(client->sock, clients[i].name);
-         write_client(client->sock, " : \n");
-         write_client(client->sock, clients[i].bio);
-         write_client(client->sock, "\n\n");
-         trouve = true;
-         break;
+         if(strcmp(clients[i].bio,"")==0){
+            write_client(client->sock, "Ce joueur n'a pas de bio\n");
+            trouve = true;
+            break;
+         }else{       
+            write_client(client->sock, "Bio de ");
+            write_client(client->sock, clients[i].name);
+            write_client(client->sock, " : \n");
+            write_client(client->sock, clients[i].bio);
+            write_client(client->sock, "\n\n");
+            trouve = true;
+            break;
+         }
       }
    }
    if (!trouve)

@@ -24,6 +24,6 @@ typedef struct
    bool confidentialitePublique;
    bool sauvegardeMode;
 
-} Client;
+}Client;
 
 #endif /* guard */
