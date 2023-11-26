@@ -11,14 +11,17 @@ enum EtatClient
    ETAT_VOIR_BIO,
    ETAT_MESSAGE,
    ETAT_ATTENTE_REPONSE_INVITATION,
+   ETAT_DOIT_REPONDRE_INVITATION,
+   ETAT_OBSERVATEUR_JEU,
+   ETAT_CHOIX_OBSERVATEUR,
 };
-typedef struct
+typedef struct Client
 {
    SOCKET sock;
+   struct Client * adversaire;
    char name[BUF_SIZE];
    enum EtatClient etat;
    char bio[800];
-   struct Client *adversaire;
    // int inscrit;
    struct Client *amis[50];
    bool confidentialitePublique;

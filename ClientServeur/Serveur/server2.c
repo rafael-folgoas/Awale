@@ -175,6 +175,11 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          write_client(client->sock, "Entrer le nom du joueur que vous voulez inviter : \n");
          client->etat = ETAT_INVITATION_PARTIE;
       }
+      else if (strcmp(buffer, "3") == 0)
+      {
+         write_client(client->sock, "Vous etes en mode observateur \n"); //test
+         client->etat = ETAT_OBSERVATEUR_JEU;
+      }
       else if (strcmp(buffer, "4") == 0)
       {
          changementConfidentialite(client);
@@ -275,6 +280,46 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          // client->etat = message mode;
       }
       break;
+   case ETAT_DOIT_REPONDRE_INVITATION:
+      if (strcmp(buffer, "1") == 0)
+      {
+         write_client(client->sock, "Vous avez accepte invitation ! \n");
+         write_client(client->adversaire->sock, "Votre invitation a ete acceptee ! \n");      
+         //client->etat = ETAT_PLAYING; 
+         //client->adversaire->etat = ETAT_PLAYING; 
+
+      }
+      else if (strcmp(buffer, "2") == 0)
+      {
+         write_client(client->sock, "Vous avez refuse invitation \n");
+         write_client(client->adversaire->sock, "Votre invitation a ete refusee ! \n");
+         client->etat = ETAT_MENU;
+         client->adversaire->etat = ETAT_MENU;
+         menu(*client);
+         menu(*(client->adversaire)); 
+      }
+      break;
+
+   case ETAT_OBSERVATEUR_JEU:
+   //a completer
+      // char *listeJeuEnCours = malloc(BUF_SIZE * sizeof(char));
+      // if (strlen(listeJeuEnCours) > 1)
+      // {
+      //    write_client(client->sock, "Voici la liste des jeux en cours : \r\n");
+      //    write_client(client->sock, listeJeuEnCours);
+      //    write_client(client->sock, "Veuillez entrer le numero du jeu que vous voulez observer :");
+      //    client->etat = ETAT_CHOIX_OBSERVATEUR;
+      // }
+      // else
+      // {
+      //    write_client(client->sock, "Aucun jeu en cours\r\n");
+      //    client->etat = ETAT_MENU;
+      // }
+      break;
+
+   case ETAT_CHOIX_OBSERVATEUR:
+      //a completer
+      break;
    case ETAT_MESSAGE:
       envoyerMessage(clients, client, actual, buffer);
       break;
@@ -289,16 +334,16 @@ static void menu(Client c)
 
    write_client(c.sock, "Menu : \n");
    write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n"); // done
-   write_client(c.sock, "2. Inviter un joueur pour une patie. \n");    // debut seulement
-   write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n");
-   write_client(c.sock, "4. Passer en mode partie privee/public. \n");                        // done
+   write_client(c.sock, "2. Inviter un joueur pour une partie. \n");    // done mais faut voir comment lancer le game en cas d'acceptation de l'invit
+   write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n"); //a completer quand squelette jeu sera fini
+   write_client(c.sock, "4. Passer en mode partie privee/public. \n"); // done
    write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); // done
-   write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");                      // done
+   write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");  // done
    write_client(c.sock, "7. Revisionner une partie sauvegardee. \n");
    write_client(c.sock, "8. Ecrire sa bio. \n");                 // done
    write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); // done
    write_client(c.sock, "10. Afficher liste d'amis. \n");        // done
-   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");
+   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");//done, a voir pdt un game
 }
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer)
 {
@@ -497,9 +542,14 @@ static void invitationPartie(Client *clients, Client *client, int actual, char *
       if ((strcmp(clients[i].name, nom) == 0) && strcmp(clients[i].name, client->name) != 0)
       {
          write_client(clients[i].sock, client->name);
-         write_client(clients[i].sock, " Vous invites pour une partie. \nTaper 1 pour accepter - 2 pour refuser\n");
+         write_client(clients[i].sock, " vous invite pour une partie. \nTaper 1 pour accepter - 2 pour refuser\n");
          clients[i].adversaire = client;
+         //client->adversaire=&clients[i];
+         write_client(client->sock, "Invitation envoyée à ");
+         write_client(client->sock, nom);
+         write_client(client->sock, ". Attente de réponse...\n");
          client->etat = ETAT_ATTENTE_REPONSE_INVITATION;
+         clients[i].etat= ETAT_DOIT_REPONDRE_INVITATION;
          break;
       }
    }
