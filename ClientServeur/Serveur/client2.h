@@ -20,6 +20,7 @@ enum EtatClient
    ETAT_OBSERVATEUR_JEU,
    ETAT_CHOIX_OBSERVATEUR,
    ETAT_JEU_EN_COURS,
+   ETAT_MESSAGE_PARTIE,
 };
 typedef struct Client
 {

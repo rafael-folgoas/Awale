@@ -21,6 +21,41 @@ void remplirFileJoueur(char *pseudo, char *mdp, char *bio){
     fclose(fichierJoueurs);
 }
 
+char* lireHistoriqueFile(char *pseudo){
+
+    FILE* historiqueJoueur;
+    char historiquePath[strlen("data/") + strlen(pseudo) + strlen("/historiquesParties.txt") + 1];
+    sprintf(historiquePath, "data/%s/historiquesParties.txt", pseudo);
+
+    historiqueJoueur = fopen(historiquePath, "r");
+
+    if (historiqueJoueur == NULL) {
+        perror("Erreur lors de l'ouverture du fichier");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(historiqueJoueur, 0, SEEK_END);
+    long fileSize = ftell(historiqueJoueur);
+    rewind(historiqueJoueur);
+
+    char *contents = (char *)malloc(fileSize + 1);
+    if (contents == NULL) {
+        perror("Erreur lors de l'allocation de mémoire");
+        exit(EXIT_FAILURE);
+    }
+
+    size_t bytesRead = fread(contents, 1, fileSize, historiqueJoueur);
+    if (bytesRead != fileSize) {
+        perror("Erreur lors de la lecture du fichier");
+        exit(EXIT_FAILURE);
+    }
+
+    contents[fileSize] = '\0';
+
+    fclose(historiqueJoueur);
+
+    return contents;
+}
 /*void remplirInfosJoueur(Client *joueur){
     FILE* infosJoueur;
     char infoPath[strlen("data/") + strlen(joueur->pseudo) + strlen("/infos.txt") + 1];

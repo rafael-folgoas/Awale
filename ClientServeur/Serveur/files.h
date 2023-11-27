@@ -6,5 +6,6 @@
 
 void creerFiles(const char *pseudo);
 void remplirFileJoueur(char *pseudo, char *mdp, char *bio);
+char* lireHistoriqueFile(char *pseudo);
 //void remplirInfosJoueur(Client *joueur);
 #endif

@@ -202,6 +202,9 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       {
          changementSauvegardeMode(client);
       }
+      else if (strcmp(buffer,"7")==0){
+         afficherHistoriqueParties(client);
+      }
       else if (strcmp(buffer, "8") == 0)
       {
          client->etat = ETAT_ECRIRE_BIO;
@@ -229,9 +232,8 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
          write_client(client->sock, "(pour quiter tappez q) \n");
          client->etat = ETAT_MESSAGE;
       }
-      else if (strcmp(buffer, "100") == 0)
-      {
-         write_client(client->sock, "Foncion de test : \n");
+      else if (strcmp(buffer, "100") == 0) {   
+         write_client(client->sock, "TEST : \r\n");
       }
       else
       {
@@ -265,9 +267,10 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       break;
 
    case ETAT_INVITATION_PARTIE:
-      if (strcmp(buffer, "q") == 0)
+      
+      if(strcmp(buffer, "q") == 0)
       {
-         client->etat = 0;
+         client->etat = ETAT_MENU;
          menu(*client);
       }
       else
@@ -281,12 +284,6 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       {
          client->etat = 0;
          menu(*client);
-      }
-      else if (strcmp(buffer, "message") == 0)
-      {
-         write_client(client->sock, "Chat : pour envoyer un message écrivez le nom de l'utilisateur puis le message sous cette forme : \n<nom_utilisateur_destinataire>:<message> \n");
-         write_client(client->sock, "pour quiter tappez quit \n");
-
       }
       break;
    case ETAT_DOIT_REPONDRE_INVITATION:
@@ -329,15 +326,40 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       }
       break;
    case ETAT_JEU_EN_COURS:
-      //récupérer la valeur du buffeur 
+      
+      if (strcmp(buffer,"chat")==0){
+         write_client(client->sock, "Chat : Envoyer un message sous cette forme : \n<message> \n");
+         write_client(client->sock, "pour quiter tappez quit \n");
+         client->etat = ETAT_MESSAGE_PARTIE;
+         break;
+      }
+      char *endptr;
+      long caseChoisie = strtol(buffer, &endptr, 10);
+
+      if (*endptr != '\0') {
+          write_client(client->sock, "Veuillez entrer un entier\n");
+          break;
+      } 
       estSonTour=estTourClient(client);
       if(!estSonTour){
          write_client(client->sock,"Ce n'est pas votre tour\n");
          break;
       }else {
-         jouerUnCoup(client, buffer);
+         if (caseChoisie>=0 && caseChoisie<12){
+            jouerUnCoup(client, buffer);
+         }else {
+            write_client(client->sock,"Case invalide, veuillez entrer un entier entre 0 et 11\n");
+         }
       }
-      
+      break;
+   case ETAT_MESSAGE_PARTIE:
+      if (strcmp(buffer, "quit") == 0)
+      {
+         client->etat = ETAT_JEU_EN_COURS;
+         write_client(client->sock, "Retour a la partie \n");
+         break;
+      }
+      envoyerMessagePartie(client->adversaire, client, buffer);
       break;
    case ETAT_CHOIX_OBSERVATEUR:
       //a completer
@@ -361,11 +383,11 @@ static void menu(Client c)
    write_client(c.sock, "4. Passer en mode partie privee/public. \n"); // done
    write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); // done
    write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");  // done
-   write_client(c.sock, "7. Revisionner les parties sauvegardees. \n");
+   write_client(c.sock, "7. Revisionner les parties sauvegardees. \n");//done 
    write_client(c.sock, "8. Ecrire sa bio. \n");                 // done
    write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); // done
    write_client(c.sock, "10. Afficher liste d'amis. \n");        // done
-   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");//done, a voir pdt un game
+   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");//done
    //login et register 
 }
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer)
@@ -411,6 +433,38 @@ static void envoyerMessage(Client *clients, Client *sender, int actual, const ch
    {
       write_client(sender->sock, "Le destinataire n'existe pas ou n'est pas en ligne.\n");
    }
+}
+
+static void envoyerMessagePartie(Client *receiver, Client *sender,const char *buffer)
+{
+   if (strcmp(buffer, "quit") == 0)
+   {
+      sender->etat = ETAT_JEU_EN_COURS;
+      return;
+   }
+   write_client(receiver->sock, "[Message de ");
+   write_client(receiver->sock, sender->name);
+   write_client(receiver->sock, "] ");
+   write_client(receiver->sock, buffer);
+   write_client(receiver->sock, "\n");
+   
+}
+
+static void afficherHistoriqueParties(Client *client){
+   char* historique=lireHistoriqueFile(client->name);
+   if (strlen(historique) > 1)
+   {
+      write_client(client->sock, "Voici la liste des parties sauvegardees : \r\n");
+      write_client(client->sock, historique);
+      
+      client->etat =ETAT_MENU;
+   }
+   else
+   {
+      write_client(client->sock, "Aucune partie sauvegardee\r\n");
+      client->etat = ETAT_MENU;
+   }
+   menu(*client);
 }
 
 bool estTourClient(Client *joueur){
@@ -513,6 +567,8 @@ static void jouerUnCoup(Client *joueur, char* caseChoisie){
 static void createJeu(Client* j1,Client* j2){
    write_client(j1->sock,"La partie va commencer !\n");
    write_client(j2->sock,"La partie va commencer !\n");
+   write_client(j1->sock,"Pour chatter appuyez écrivez : chat\n");
+   write_client(j2->sock,"Pour chatter appuyez écrivez : chat\n");
    Jeu *jeu=initJeu(j1,j2);
    write_client(j1->sock,afficherTableau(jeu));
    write_client(j2->sock,afficherTableau(jeu));

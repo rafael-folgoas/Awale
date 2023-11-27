@@ -56,6 +56,8 @@ static void envoyerMessage(Client *clients, Client *sender, int actual, const ch
 static void createJeu(Client* j1,Client* j2);
 static void jouerUnCoup(Client *joueur, char *caseChoisie);
 bool estTourClient(Client *joueur);
+static void afficherHistoriqueParties(Client *client);
+static void envoyerMessagePartie(Client *receiver, Client *sender,const char *buffer);
 
 
 #endif /* guard */
