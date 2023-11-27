@@ -27,6 +27,7 @@ typedef struct in_addr IN_ADDR;
 #define PORT 1977
 #define MAX_CLIENTS 100
 #define MAX_OBSERVERS 30
+#define MAX_JEUX 100
 
 #define BUF_SIZE 1024
 

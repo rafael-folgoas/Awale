@@ -40,6 +40,7 @@ static void app(void)
    
    /* an array for all clients */
    Client clients[MAX_CLIENTS];
+   Jeu listeJeux[MAX_JEUX];
 
    fd_set rdfs;
 
@@ -313,19 +314,19 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
 
    case ETAT_OBSERVATEUR_JEU:
    //a completer
-      // char *listeJeuEnCours = malloc(BUF_SIZE * sizeof(char));
-      // if (strlen(listeJeuEnCours) > 1)
-      // {
-      //    write_client(client->sock, "Voici la liste des jeux en cours : \r\n");
-      //    write_client(client->sock, listeJeuEnCours);
-      //    write_client(client->sock, "Veuillez entrer le numero du jeu que vous voulez observer :");
-      //    client->etat = ETAT_CHOIX_OBSERVATEUR;
-      // }
-      // else
-      // {
-      //    write_client(client->sock, "Aucun jeu en cours\r\n");
-      //    client->etat = ETAT_MENU;
-      // }
+      char *listeJeuEnCours = malloc(BUF_SIZE * sizeof(char));
+      if (strlen(listeJeuEnCours) > 1)
+      {
+         write_client(client->sock, "Voici la liste des jeux en cours : \r\n");
+         write_client(client->sock, listeJeuEnCours);
+         write_client(client->sock, "Veuillez entrer le numero du jeu que vous voulez observer :");
+         client->etat = ETAT_CHOIX_OBSERVATEUR;
+      }
+      else
+      {
+         write_client(client->sock, "Aucun jeu en cours\r\n");
+         client->etat = ETAT_MENU;
+      }
       break;
    case ETAT_JEU_EN_COURS:
       //récupérer la valeur du buffeur 
@@ -355,16 +356,17 @@ static void menu(Client c)
 
    write_client(c.sock, "Menu : \n");
    write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n"); // done
-   write_client(c.sock, "2. Inviter un joueur pour une partie. \n");    // done mais faut voir comment lancer le game en cas d'acceptation de l'invit
+   write_client(c.sock, "2. Inviter un joueur pour une partie. \n");    // done 
    write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n"); //a completer quand squelette jeu sera fini
    write_client(c.sock, "4. Passer en mode partie privee/public. \n"); // done
    write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); // done
    write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");  // done
-   write_client(c.sock, "7. Revisionner une partie sauvegardee. \n");
+   write_client(c.sock, "7. Revisionner les parties sauvegardees. \n");
    write_client(c.sock, "8. Ecrire sa bio. \n");                 // done
    write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); // done
    write_client(c.sock, "10. Afficher liste d'amis. \n");        // done
    write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");//done, a voir pdt un game
+   //login et register 
 }
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer)
 {
@@ -433,7 +435,7 @@ bool estTourClient(Client *joueur){
 
 static void jouerUnCoup(Client *joueur, char* caseChoisie){
    Jeu* jeu=joueur->jeuEnCours;
-   Clients observers=jeu->observers;
+
    printf("avant jouer coup");
    bool coupValide=jouerCoup(jeu,atoi(caseChoisie),joueur);
    printf("apres jouer coup");
@@ -445,42 +447,19 @@ static void jouerUnCoup(Client *joueur, char* caseChoisie){
       sprintf(sJ1, "%d", jeu->scoreJ1);
       sprintf(sJ2, "%d", jeu->scoreJ2);
       for(int i=0;i<jeu->nbObservers;i++){
-         if (joueur->confidentialitePublique){
-            write_client(observers[i]->sock,"Coup joue : ");
-            write_client(observers[i]->sock,caseChoisie);
-            write_client(observers[i]->sock,afficherTableau(jeu));
-            write_client(observers[i]->sock,"Scores actuels :\n");
-            write_client(observers[i]->sock,jeu->joueur1->name);
-            write_client(observers[i]->sock," :");
-            write_client(observers[i]->sock,sJ1);
-            write_client(observers[i]->sock,"\n");
-            write_client(observers[i]->sock,jeu->joueur2->name);
-            write_client(observers[i]->sock," :");
-            write_client(observers[i]->sock,sJ2);
-            write_client(observers[i]->sock,"\n");
-         }else {
-            bool ami=false;
-            for(int i=0;i<joueur->nbAmis;i++){
-               if(strcmp(joueur->amis[i]->name,observers[i]->name)==0){
-                  ami=true;
-                  break;
-               }
-            }
-            if (ami){
-               write_client(observers[i]->sock,"Coup joue : ");
-               write_client(observers[i]->sock,caseChoisie);
-               write_client(observers[i]->sock,afficherTableau(jeu));
-               write_client(observers[i]->sock,"Scores actuels :\n");
-               write_client(observers[i]->sock,jeu->joueur1->name);
-               write_client(observers[i]->sock," :");
-               write_client(observers[i]->sock,sJ1);
-               write_client(observers[i]->sock,"\n");
-               write_client(observers[i]->sock,jeu->joueur2->name);
-               write_client(observers[i]->sock," :");
-               write_client(observers[i]->sock,sJ2);
-               write_client(observers[i]->sock,"\n");
-            }
-         }
+         
+            write_client(jeu->observers[i]->sock,"Coup joue : ");
+            write_client(jeu->observers[i]->sock,caseChoisie);
+            write_client(jeu->observers[i]->sock,afficherTableau(jeu));
+            write_client(jeu->observers[i]->sock,"Scores actuels :\n");
+            write_client(jeu->observers[i]->sock,jeu->joueur1->name);
+            write_client(jeu->observers[i]->sock," :");
+            write_client(jeu->observers[i]->sock,sJ1);
+            write_client(jeu->observers[i]->sock,"\n");
+            write_client(jeu->observers[i]->sock,jeu->joueur2->name);
+            write_client(jeu->observers[i]->sock," :");
+            write_client(jeu->observers[i]->sock,sJ2);
+            write_client(jeu->observers[i]->sock,"\n");
       }
       write_client(joueur->adversaire->sock,"Coup joue : ");
       write_client(joueur->adversaire->sock,caseChoisie);
