@@ -1,9 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
-#include <string.h>
-#include <stdbool.h>
-
 #include "server2.h"
 #include "jeu.h"
 #include <sys/select.h>
@@ -12,7 +9,7 @@
 
 static void init(void)
 {
-#ifdef WIN32
+#ifdef WIN32messenger
    WSADATA wsa;
    int err = WSAStartup(MAKEWORD(2, 2), &wsa);
    if (err < 0)
@@ -37,7 +34,7 @@ static void app(void)
    /* the index for the array */
    int actual = 0;
    int max = sock;
-   
+   int nbJeux = 0;
    /* an array for all clients */
    Client clients[MAX_CLIENTS];
    Jeu listeJeux[MAX_JEUX];
@@ -151,7 +148,7 @@ static void app(void)
                else
                {
                   // send_message_to_all_clients(clients, client, actual, buffer, 0);
-                  gestionEtat(client, buffer, clients, actual);
+                  gestionEtat(client, buffer, clients, actual,nbJeux,listeJeux);
                }
 
                break;
@@ -165,10 +162,8 @@ static void app(void)
 }
 
 // Fonction pour gérer l'état du client
-void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
+void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int nbJeux,Jeu* listeJeux)
 {
-   bool estSonTour;
-   int caseChoisie;
    
    switch (client->etat)
    {
@@ -187,7 +182,7 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       else if (strcmp(buffer, "3") == 0)
       {
          write_client(client->sock, "Vous etes en mode observateur \n"); //test
-         client->etat = ETAT_OBSERVATEUR_JEU;
+         client->etat = ETAT_OBSERVATEUR_DEMANDE;
       }
       else if (strcmp(buffer, "4") == 0)
       {
@@ -292,12 +287,9 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       {
          write_client(client->sock, "Vous avez accepte invitation ! \n");
          write_client(client->adversaire->sock, "Votre invitation a ete acceptee ! \n");    
-         createJeu(client, client->adversaire);
+         createJeu(client, client->adversaire,nbJeux,listeJeux);
 
       }
-
-
-
       else if (strcmp(buffer, "2") == 0)
       {
          write_client(client->sock, "Vous avez refuse invitation \n");
@@ -309,14 +301,23 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       }
       break;
 
-   case ETAT_OBSERVATEUR_JEU:
-   //a completer
-      char *listeJeuEnCours = malloc(BUF_SIZE * sizeof(char));
-      if (strlen(listeJeuEnCours) > 1)
+   case ETAT_OBSERVATEUR_DEMANDE:
+      if (nbJeux > 0)
       {
          write_client(client->sock, "Voici la liste des jeux en cours : \r\n");
-         write_client(client->sock, listeJeuEnCours);
-         write_client(client->sock, "Veuillez entrer le numero du jeu que vous voulez observer :");
+         char pos[20];
+         for(int i=0 ; i<nbJeux ; i++){
+            if(listeJeux[i].estFini){
+               sprintf(pos, "%d", i);
+               write_client(client->sock, pos);
+               write_client(client->sock, "- ");
+               write_client(client->sock, listeJeux[i].joueur1->name);
+               write_client(client->sock,"VS");
+               write_client(client->sock, listeJeux[i].joueur2->name);
+               write_client(client->sock, "-");
+            }
+         }
+         write_client(client->sock, "\nVeuillez entrer le numero du jeu que vous voulez observer :");
          client->etat = ETAT_CHOIX_OBSERVATEUR;
       }
       else
@@ -340,7 +341,7 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
           write_client(client->sock, "Veuillez entrer un entier\n");
           break;
       } 
-      estSonTour=estTourClient(client);
+      bool estSonTour=estTourClient(client);
       if(!estSonTour){
          write_client(client->sock,"Ce n'est pas votre tour\n");
          break;
@@ -362,7 +363,29 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       envoyerMessagePartie(client->adversaire, client, buffer);
       break;
    case ETAT_CHOIX_OBSERVATEUR:
-      //a completer
+      char *endptrr;
+      long choix = strtol(buffer, &endptrr, 10);
+
+      if (*endptrr != '\0') {
+          write_client(client->sock, "Veuillez entrer un entier\n");
+          break;
+      } 
+      if(choix>=0 && choix<nbJeux){
+         if(!listeJeux[choix].estFini){
+            write_client(client->sock,"Vous etes en mode observateur sur la partie en cours : \n");
+            write_client(client->sock, listeJeux[choix].joueur1->name);
+            write_client(client->sock,"VS");
+            write_client(client->sock, listeJeux[choix].joueur2->name);
+            write_client(client->sock, "\n");
+            client->etat=ETAT_OBSERVATEUR_JEU;
+         }else {
+            write_client(client->sock,"Rentrez un numero de partie possible : \n");
+
+         }
+      }else{
+         write_client(client->sock,"La partie n'est pas valide\n");
+         client->etat=ETAT_OBSERVATEUR_DEMANDE;
+      }
       break;
    case ETAT_MESSAGE:
       envoyerMessage(clients, client, actual, buffer);
@@ -377,17 +400,17 @@ static void menu(Client c)
 {
 
    write_client(c.sock, "Menu : \n");
-   write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n"); // done
-   write_client(c.sock, "2. Inviter un joueur pour une partie. \n");    // done 
-   write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n"); //a completer quand squelette jeu sera fini
-   write_client(c.sock, "4. Passer en mode partie privee/public. \n"); // done
-   write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); // done
-   write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");  // done
-   write_client(c.sock, "7. Revisionner les parties sauvegardees. \n");//done 
-   write_client(c.sock, "8. Ecrire sa bio. \n");                 // done
-   write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); // done
-   write_client(c.sock, "10. Afficher liste d'amis. \n");        // done
-   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");//done
+   write_client(c.sock, "1. Afficher liste des joueurs en ligne. \n"); 
+   write_client(c.sock, "2. Inviter un joueur pour une partie. \n");    
+   write_client(c.sock, "3. Regarder en tant que spectateur une partie. \n"); //a faire mon reuf 
+   write_client(c.sock, "4. Passer en mode partie privee/public. \n"); 
+   write_client(c.sock, "5. Definir une liste d'ami pouvant visionner ma partie privee. \n"); 
+   write_client(c.sock, "6. Activer le mode sauvegarde de parties. \n");  
+   write_client(c.sock, "7. Revisionner les parties sauvegardees. \n");
+   write_client(c.sock, "8. Ecrire sa bio. \n");                 
+   write_client(c.sock, "9. Voir la bio d'un autre joueur. \n"); 
+   write_client(c.sock, "10. Afficher liste d'amis. \n");        
+   write_client(c.sock, "11. Envoyer un message au destinataire desire, tapez exit pour sortir de ce chat. \n");
    //login et register 
 }
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer)
@@ -564,12 +587,13 @@ static void jouerUnCoup(Client *joueur, char* caseChoisie){
       
    }
 }
-static void createJeu(Client* j1,Client* j2){
+static void createJeu(Client* j1,Client* j2,int nbJeux,Jeu* listeJeux){
    write_client(j1->sock,"La partie va commencer !\n");
    write_client(j2->sock,"La partie va commencer !\n");
    write_client(j1->sock,"Pour chatter appuyez écrivez : chat\n");
    write_client(j2->sock,"Pour chatter appuyez écrivez : chat\n");
    Jeu *jeu=initJeu(j1,j2);
+
    write_client(j1->sock,afficherTableau(jeu));
    write_client(j2->sock,afficherTableau(jeu));
    j1->jeuEnCours=jeu;
@@ -585,6 +609,8 @@ static void createJeu(Client* j1,Client* j2){
    }
    jeu->joueur1->etat = ETAT_JEU_EN_COURS; 
    jeu->joueur2->etat = ETAT_JEU_EN_COURS; 
+   listeJeux[nbJeux]=*jeu;
+   nbJeux++;
 }
 
 static void changementConfidentialite(Client *client)
