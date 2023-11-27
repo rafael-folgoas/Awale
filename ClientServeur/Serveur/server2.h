@@ -46,18 +46,21 @@ static void clear_clients(Client *clients, int actual);
 static void menu(Client c);
 static void afficherListeJoueursEnLigne(Client *clients, Client client, int actual);
 static void invitationPartie(Client *clients, Client *client, int actual, char *nom);
-static void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int nbJeux, Jeu *listJeux);
+static void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *nbJeux, Jeu *listJeux);
 static void afficherListeAmis(Client *client);
 static void ajouterAmi(Client *client, Client *clients, int actual, const char *buffer);
 static void voirBioJoueur(Client *clients, Client *client, int actual, char *nom);
 static void changementConfidentialite(Client *client);
 static void changementSauvegardeMode(Client *client);
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer);
-static void createJeu(Client* j1,Client* j2,int nbJeux,Jeu *listJeux);
+static void createJeu(Client* j1,Client* j2,int *nbJeux,Jeu *listJeux);
 static void jouerUnCoup(Client *joueur, char *caseChoisie);
 bool estTourClient(Client *joueur);
 static void afficherHistoriqueParties(Client *client);
 static void envoyerMessagePartie(Client *receiver, Client *sender,const char *buffer);
+static bool addObserver(Jeu* listeJeux,Client* observer,int choix);
+static void removeObserver(Jeu* jeu,Client* observer);
+static void afficherListPartiesDisponnibles(Jeu* listeJeux,int *nbJeux,Client* client);
 
 
 #endif /* guard */
