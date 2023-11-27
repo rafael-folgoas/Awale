@@ -26,6 +26,7 @@ typedef struct in_addr IN_ADDR;
 #define CRLF "\r\n"
 #define PORT 1977
 #define MAX_CLIENTS 100
+#define MAX_OBSERVERS 30
 
 #define BUF_SIZE 1024
 
@@ -51,5 +52,9 @@ static void voirBioJoueur(Client *clients, Client *client, int actual, char *nom
 static void changementConfidentialite(Client *client);
 static void changementSauvegardeMode(Client *client);
 static void envoyerMessage(Client *clients, Client *sender, int actual, const char *buffer);
+static void createJeu(Client* j1,Client* j2);
+static void jouerUnCoup(Client *joueur, char *caseChoisie);
+bool estTourClient(Client *joueur);
+
 
 #endif /* guard */

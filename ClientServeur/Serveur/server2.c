@@ -5,8 +5,10 @@
 #include <stdbool.h>
 
 #include "server2.h"
-#include "client2.h"
+#include "jeu.h"
 #include <sys/select.h>
+
+
 
 static void init(void)
 {
@@ -35,7 +37,7 @@ static void app(void)
    /* the index for the array */
    int actual = 0;
    int max = sock;
-
+   
    /* an array for all clients */
    Client clients[MAX_CLIENTS];
 
@@ -114,11 +116,14 @@ static void app(void)
          c.adversaire = NULL;
          c.etat = ETAT_MENU;
          c.confidentialitePublique = true;
-         // c.inscrit=0;
-         c.sauvegardeMode = false;
+         c.sauvegardeMode = true;
          strncpy(c.bio,"", 800);
          c.sock = csock;
-
+         strncpy(c.mdp,"", 20);
+         creerFiles(c.name);
+         c.jeuEnCours=NULL;
+         c.nbAmis=0;
+         remplirFileJoueur(c.name, c.mdp,c.bio);
          clients[actual] = c;
          menu(clients[actual]);
          actual++;
@@ -161,6 +166,9 @@ static void app(void)
 // Fonction pour gérer l'état du client
 void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
 {
+   bool estSonTour;
+   int caseChoisie;
+   
    switch (client->etat)
    {
    case ETAT_MENU:
@@ -277,18 +285,21 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       {
          write_client(client->sock, "Chat : pour envoyer un message écrivez le nom de l'utilisateur puis le message sous cette forme : \n<nom_utilisateur_destinataire>:<message> \n");
          write_client(client->sock, "pour quiter tappez quit \n");
-         // client->etat = message mode;
+
       }
       break;
    case ETAT_DOIT_REPONDRE_INVITATION:
+   
       if (strcmp(buffer, "1") == 0)
       {
          write_client(client->sock, "Vous avez accepte invitation ! \n");
-         write_client(client->adversaire->sock, "Votre invitation a ete acceptee ! \n");      
-         //client->etat = ETAT_PLAYING; 
-         //client->adversaire->etat = ETAT_PLAYING; 
+         write_client(client->adversaire->sock, "Votre invitation a ete acceptee ! \n");    
+         createJeu(client, client->adversaire);
 
       }
+
+
+
       else if (strcmp(buffer, "2") == 0)
       {
          write_client(client->sock, "Vous avez refuse invitation \n");
@@ -316,7 +327,17 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual)
       //    client->etat = ETAT_MENU;
       // }
       break;
-
+   case ETAT_JEU_EN_COURS:
+      //récupérer la valeur du buffeur 
+      estSonTour=estTourClient(client);
+      if(!estSonTour){
+         write_client(client->sock,"Ce n'est pas votre tour\n");
+         break;
+      }else {
+         jouerUnCoup(client, buffer);
+      }
+      
+      break;
    case ETAT_CHOIX_OBSERVATEUR:
       //a completer
       break;
@@ -390,6 +411,147 @@ static void envoyerMessage(Client *clients, Client *sender, int actual, const ch
    }
 }
 
+bool estTourClient(Client *joueur){
+   Jeu* jeu=joueur->jeuEnCours;
+   if(strcmp(joueur->name,jeu->joueur1->name)==0){
+      if(jeu->tour==0){
+         return true;
+      }else{
+         return false;
+      }
+   }else if(strcmp(joueur->name,jeu->joueur2->name)==0){
+      if(jeu->tour==1){
+         return true;
+      }else{
+         return false;
+      }
+   }else{
+      return false;
+   }
+   return false;
+}
+
+static void jouerUnCoup(Client *joueur, char* caseChoisie){
+   Jeu* jeu=joueur->jeuEnCours;
+   Clients observers=jeu->observers;
+   printf("avant jouer coup");
+   bool coupValide=jouerCoup(jeu,atoi(caseChoisie),joueur);
+   printf("apres jouer coup");
+   if(!coupValide){
+      write_client(joueur->sock,"Coup invalide\n");
+   }else{
+      char* sJ1=(char*)malloc(20*sizeof(char));
+      char* sJ2=(char*)malloc(20*sizeof(char));
+      sprintf(sJ1, "%d", jeu->scoreJ1);
+      sprintf(sJ2, "%d", jeu->scoreJ2);
+      for(int i=0;i<jeu->nbObservers;i++){
+         if (joueur->confidentialitePublique){
+            write_client(observers[i]->sock,"Coup joue : ");
+            write_client(observers[i]->sock,caseChoisie);
+            write_client(observers[i]->sock,afficherTableau(jeu));
+            write_client(observers[i]->sock,"Scores actuels :\n");
+            write_client(observers[i]->sock,jeu->joueur1->name);
+            write_client(observers[i]->sock," :");
+            write_client(observers[i]->sock,sJ1);
+            write_client(observers[i]->sock,"\n");
+            write_client(observers[i]->sock,jeu->joueur2->name);
+            write_client(observers[i]->sock," :");
+            write_client(observers[i]->sock,sJ2);
+            write_client(observers[i]->sock,"\n");
+         }else {
+            bool ami=false;
+            for(int i=0;i<joueur->nbAmis;i++){
+               if(strcmp(joueur->amis[i]->name,observers[i]->name)==0){
+                  ami=true;
+                  break;
+               }
+            }
+            if (ami){
+               write_client(observers[i]->sock,"Coup joue : ");
+               write_client(observers[i]->sock,caseChoisie);
+               write_client(observers[i]->sock,afficherTableau(jeu));
+               write_client(observers[i]->sock,"Scores actuels :\n");
+               write_client(observers[i]->sock,jeu->joueur1->name);
+               write_client(observers[i]->sock," :");
+               write_client(observers[i]->sock,sJ1);
+               write_client(observers[i]->sock,"\n");
+               write_client(observers[i]->sock,jeu->joueur2->name);
+               write_client(observers[i]->sock," :");
+               write_client(observers[i]->sock,sJ2);
+               write_client(observers[i]->sock,"\n");
+            }
+         }
+      }
+      write_client(joueur->adversaire->sock,"Coup joue : ");
+      write_client(joueur->adversaire->sock,caseChoisie);
+      write_client(joueur->sock,afficherTableau(jeu));
+      write_client(joueur->adversaire->sock,afficherTableau(jeu));
+      write_client(joueur->sock,"Scores actuels :\n");
+      write_client(joueur->sock,jeu->joueur1->name);
+      write_client(joueur->sock," :");
+      write_client(joueur->sock,sJ1);
+      write_client(joueur->sock,"\n");
+      write_client(joueur->sock,jeu->joueur2->name);
+      write_client(joueur->sock," :");
+      write_client(joueur->sock,sJ2);
+      write_client(joueur->sock,"\n");
+      write_client(joueur->adversaire->sock,"Scores actuels :\n");
+      write_client(joueur->adversaire->sock,jeu->joueur1->name);
+      write_client(joueur->adversaire->sock," :");
+      write_client(joueur->adversaire->sock,sJ1);
+      write_client(joueur->adversaire->sock,"\n");
+      write_client(joueur->adversaire->sock,jeu->joueur2->name);
+      write_client(joueur->adversaire->sock," :");
+      write_client(joueur->adversaire->sock,sJ2);
+      write_client(joueur->adversaire->sock,"\n");
+      if(finPartie(jeu)==0){
+         write_client(jeu->joueur1->sock,jeu->joueur1->name);
+         write_client(jeu->joueur1->sock," a gagne !\n");
+         write_client(jeu->joueur2->sock,jeu->joueur1->name);
+         write_client(jeu->joueur2->sock," a gagne !\n"); 
+         jeu->joueur1->etat = ETAT_MENU;
+         jeu->joueur2->etat = ETAT_MENU;
+      }else if(finPartie(jeu)==1){
+         write_client(jeu->joueur1->sock,jeu->joueur2->name);
+         write_client(jeu->joueur1->sock," a gagne !\n");
+         write_client(jeu->joueur2->sock,jeu->joueur2->name);
+         write_client(jeu->joueur2->sock," a gagne !\n");
+         jeu->joueur1->etat = ETAT_MENU;
+         jeu->joueur2->etat = ETAT_MENU;
+      }
+      else{
+         if(jeu->tour==0){
+            write_client(jeu->joueur1->sock,"C'est votre tour\n");
+            write_client(jeu->joueur2->sock,"C'est le tour de votre adversaire\n");
+         }else{
+            write_client(jeu->joueur2->sock,"C'est votre tour\n");
+            write_client(jeu->joueur1->sock,"C'est le tour de votre adversaire\n");
+         }
+      }
+      
+   }
+}
+static void createJeu(Client* j1,Client* j2){
+   write_client(j1->sock,"La partie va commencer !\n");
+   write_client(j2->sock,"La partie va commencer !\n");
+   Jeu *jeu=initJeu(j1,j2);
+   write_client(j1->sock,afficherTableau(jeu));
+   write_client(j2->sock,afficherTableau(jeu));
+   j1->jeuEnCours=jeu;
+   j2->jeuEnCours=jeu;
+   j2->adversaire=j1;
+   j1->adversaire=j2;
+   if(jeu->tour==0){
+      write_client(jeu->joueur1->sock,"C'est votre tour\n");
+      write_client(jeu->joueur2->sock,"C'est le tour de votre adversaire\n");
+   }else{
+      write_client(jeu->joueur2->sock,"C'est votre tour\n");
+      write_client(jeu->joueur1->sock,"C'est le tour de votre adversaire\n");
+   }
+   jeu->joueur1->etat = ETAT_JEU_EN_COURS; 
+   jeu->joueur2->etat = ETAT_JEU_EN_COURS; 
+}
+
 static void changementConfidentialite(Client *client)
 {
    if (client->confidentialitePublique)
@@ -410,12 +572,12 @@ static void changementSauvegardeMode(Client *client)
    if (client->sauvegardeMode)
    {
       client->sauvegardeMode = false;
-      write_client(client->sock, "Vous etes en mode sauvegarde. \n");
+      write_client(client->sock, "Vous etes en mode non sauvegarde. \n");
    }
    else
    {
       client->sauvegardeMode = true;
-      write_client(client->sock, "Vous etes en mode non sauvegarde. \n");
+      write_client(client->sock, "Vous etes en mode sauvegarde. \n");
    }
    client->etat = ETAT_MENU;
    menu(*client);
@@ -494,6 +656,7 @@ static void ajouterAmi(Client *client, Client *clients, int actual, const char *
                   break; // Ajout d'un break pour éviter de continuer la recherche après avoir trouvé une place
                }
             }
+            client->nbAmis++;
          }
       }
 
@@ -656,6 +819,8 @@ static void write_client(SOCKET sock, const char *buffer)
       exit(errno);
    }
 }
+
+
 
 int main(int argc, char **argv)
 {
