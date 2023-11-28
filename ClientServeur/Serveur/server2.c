@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <string.h>
 #include "server2.h"
 #include "jeu.h"
 #include <sys/select.h>
@@ -94,21 +95,60 @@ static void app(void)
             continue;
          }
 
+         char pseudo[BUF_SIZE];
+         char mdpC[BUF_SIZE];
+
+         // Extraction du pseudo et du mot de passe de la chaîne lue
+         if (sscanf(buffer, "pseudo:%s mdp:%s", pseudo, mdpC) != 2)
+         {
+            printf("probleeme");
+            closesocket(sock);
+ 
+         }
+
+         // vérifier le pseudo et le mot de passe
+         int status = verifier_identite(pseudo, mdpC);
+
+         // envoyer le statut de connexion au client
+         //write_client(sock, "", status);
+
+         if (status == 1)
+         {
+            // pseudo et mot de passe corrects, procéder avec le reste du traitement
+            // ...
+            write_client(sock, "Connexion réussie");
+         }
+         else if (status == 2)
+         {
+            // pseudo correct, mot de passe incorrect
+            write_client(sock, "Mot de passe incorrect. Veuillez réessayer.");
+            closesocket(sock);
+         }
+         else
+         {
+            // pseudo incorrect ou ajouté, traitement en fonction des besoins
+            // Si vous souhaitez effectuer des actions spécifiques lors de l'inscription,
+            // vous pouvez les ajouter ici.
+            // Par exemple, envoyer un message de bienvenue au nouveau client.
+            write_client(sock, "Bienvenue ! Vous êtes maintenant inscrit.");
+            // ... (autres traitements)
+         }
+      
          // verifier dispo pseudo
-         bool dispo = true;
-         for (int i = 0; i < actual; i++)
-         {
-            if (strcmp(clients[i].name, buffer) == 0)
-            {
-               dispo = false;
-            }
-         }
-         if (!dispo)
-         {
-            write_client(csock, "Pseudo non disponible, essayez avec un autre");
-            closesocket(csock);
-            continue;
-         }
+         // bool dispo = true;
+         // for (int i = 0; i < actual; i++)
+         // {
+         //    if (strcmp(clients[i].name, buffer) == 0)
+         //    {
+         //       dispo = false;
+         //    }
+         // }
+         // if (!dispo)
+         // {
+         //    write_client(csock, "Pseudo non disponible, essayez avec un autre");
+         //    closesocket(csock);
+         //    continue;
+         // }
 
          /* what is the new maximum fd ? */
          max = csock > max ? csock : max;
@@ -117,17 +157,17 @@ static void app(void)
 
          Client c;
          strncpy(c.name, buffer, BUF_SIZE - 1);
+         strncpy(c.mdp, buffer, BUF_SIZE - 1);
          c.adversaire = NULL;
          c.etat = ETAT_MENU;
          c.confidentialitePublique = true;
          c.sauvegardeMode = true;
          strncpy(c.bio,"", 800);
          c.sock = csock;
-         strncpy(c.mdp,"", 20);
          creerFiles(c.name);
          c.jeuEnCours=NULL;
          c.nbAmis=0;
-         remplirFileJoueur(c.name, c.mdp,c.bio);
+         //remplirFileJoueur(c.name, c.mdp,c.bio);
          clients[actual] = c;
          menu(clients[actual]);
          actual++;
@@ -166,6 +206,59 @@ static void app(void)
    clear_clients(clients, actual);
    end_connection(sock);
 }
+
+//Inscription/Connexion
+int verifier_identite(const char *pseudo, const char *mdp)
+{
+   FILE *file = fopen("joueurs.txt", "a+");
+
+   if (file == NULL)
+   {
+      perror("fopen()");
+      exit(errno);
+   }
+
+   char buffer[BUF_SIZE];
+   char current_pseudo[BUF_SIZE];
+   char current_mdp[BUF_SIZE];
+   int status_pseudo = 0; // 0: pseudo incorrect, 1: pseudo correct
+   int status_mdp = 0;   // 0: mot de passe incorrect, 1: mot de passe correct
+
+   while (fgets(buffer, sizeof(buffer), file) != NULL)
+   {
+      if (sscanf(buffer, "pseudo:%s mdp:%s", current_pseudo, current_mdp) == 2)
+      {
+         if (strcmp(current_pseudo, pseudo) == 0)
+         {
+            status_pseudo = 1;
+            status_mdp = (strcmp(current_mdp, mdp) == 0) ? 1 : 0;
+            break; 
+         }
+      }
+   }
+
+   if (status_pseudo == 0)
+   {
+      fprintf(file, "pseudo:%s mdp:%s\n", pseudo, mdp);
+      status_pseudo = 1; 
+   }
+
+   fclose(file);
+
+   if (status_pseudo == 1 && status_mdp == 1) //connexion réussie
+   {
+      return 1; 
+   }
+   else if (status_pseudo == 1 && status_mdp == 0) //mdp incorrect
+   {
+      return 2; 
+   }
+   else //inscription client
+   {
+      return 0; 
+   }
+}
+
 
 // Fonction pour gérer l'état du client
 void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *nbJeux,Jeu** listeJeux)
@@ -317,24 +410,24 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *
          client->etat = ETAT_MESSAGE_PARTIE;
          break;
       }
-      char *endptr;
-      long caseChoisie = strtol(buffer, &endptr, 10);
+      // char *endptr;
+      // long caseChoisie = strtol(buffer, &endptr, 10);
 
-      if (*endptr != '\0') {
-          write_client(client->sock, "Veuillez entrer un entier\n");
-          break;
-      } 
-      bool estSonTour=estTourClient(client);
-      if(!estSonTour){
-         write_client(client->sock,"Ce n'est pas votre tour\n");
-         break;
-      }else {
-         if (caseChoisie>=0 && caseChoisie<12){
-            jouerUnCoup(client, buffer);
-         }else {
-            write_client(client->sock,"Case invalide, veuillez entrer un entier entre 0 et 11\n");
-         }
-      }
+      // if (*endptr != '\0') {
+      //     write_client(client->sock, "Veuillez entrer un entier\n");
+      //     break;
+      // } 
+      // bool estSonTour=estTourClient(client);
+      // if(!estSonTour){
+      //    write_client(client->sock,"Ce n'est pas votre tour\n");
+      //    break;
+      // }else {
+      //    if (caseChoisie>=0 && caseChoisie<12){
+      //       jouerUnCoup(client, buffer);
+      //    }else {
+      //       write_client(client->sock,"Case invalide, veuillez entrer un entier entre 0 et 11\n");
+      //    }
+      // }
       break;
    case ETAT_MESSAGE_PARTIE:
       if (strcmp(buffer, "quit") == 0)
@@ -346,37 +439,37 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *
       envoyerMessagePartie(client->adversaire, client, buffer);
       break;
    case ETAT_OBSERVATEUR_DEMANDE:
-      char *endptrr;
-      int choix = (int)strtol(buffer, &endptrr, 10);
+      // char *endptrr;
+      // int choix = (int)strtol(buffer, &endptrr, 10);
 
-      if (*endptrr != '\0') {
-          write_client(client->sock, "Veuillez entrer un entier\n");
-          break;
-      } 
+      // if (*endptrr != '\0') {
+      //    write_client(client->sock, "Veuillez entrer un entier\n");
+      //    break;
+      // } 
 
-      if(choix>=0 && choix<*nbJeux){
-         if(!listeJeux[choix]->estFini){
-            bool trouve =addObserver(listeJeux,client,choix);
-            if(trouve){
-               write_client(client->sock,"Vous etes en mode observateur sur la partie en cours : \n");
-               write_client(client->sock, listeJeux[choix]->joueur1->name);
-               write_client(client->sock,"VS");
-               write_client(client->sock, listeJeux[choix]->joueur2->name);
-               write_client(client->sock, "\n");
-               write_client(client->sock,"Ecrivez quit pour quitter l observation. \n");
-               client->etat=ETAT_OBSERVATEUR_JEU;
-            }else{
-               write_client(client->sock,"Plus de place dans la partie \n");
-               client->etat=ETAT_MENU;
-            } 
-         }else {
-            write_client(client->sock,"Rentrez un numero de partie possible : \n");
+      // if(choix>=0 && choix<*nbJeux){
+      //    if(!listeJeux[choix]->estFini){
+      //       bool trouve =addObserver(listeJeux,client,choix);
+      //       if(trouve){
+      //          write_client(client->sock,"Vous etes en mode observateur sur la partie en cours : \n");
+      //          write_client(client->sock, listeJeux[choix]->joueur1->name);
+      //          write_client(client->sock,"VS");
+      //          write_client(client->sock, listeJeux[choix]->joueur2->name);
+      //          write_client(client->sock, "\n");
+      //          write_client(client->sock,"Ecrivez quit pour quitter l observation. \n");
+      //          client->etat=ETAT_OBSERVATEUR_JEU;
+      //       }else{
+      //          write_client(client->sock,"Plus de place dans la partie \n");
+      //          client->etat=ETAT_MENU;
+      //       } 
+      //    }else {
+      //       write_client(client->sock,"Rentrez un numero de partie possible : \n");
 
-         }
-      }else{
-         write_client(client->sock,"La partie n'est pas valide\n");
-         client->etat=ETAT_OBSERVATEUR_DEMANDE;
-      }
+      //    }
+      // }else{
+      //    write_client(client->sock,"La partie n'est pas valide\n");
+      //    client->etat=ETAT_OBSERVATEUR_DEMANDE;
+      // }
       break;
       
    case ETAT_OBSERVATEUR_JEU:
@@ -928,6 +1021,15 @@ static int read_client(SOCKET sock, char *buffer)
    }
 
    buffer[n] = 0;
+
+   char pseudo[BUF_SIZE];
+   char mdp[BUF_SIZE];
+
+   if (sscanf(buffer, "pseudo:%s mdp:%s", pseudo, mdp) != 2)
+   {
+
+      return -1;
+   }
 
    return n;
 }

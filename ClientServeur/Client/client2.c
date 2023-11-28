@@ -26,15 +26,42 @@ static void end(void)
 #endif
 }
 
-static void app(const char *address, const char *name)
+static void app(const char *address, const char *coordClient)
 {
    SOCKET sock = init_connection(address);
    char buffer[BUF_SIZE];
 
    fd_set rdfs;
+   /* send our name and password*/
+   write_server(sock, coordClient);
+   
+   //sprintf(buffer, "pseudo:%s mdp:%s", name, mdp);
 
-   /* send our name */
-   write_server(sock, name);
+   char pseudo[BUF_SIZE];
+   char mdp[BUF_SIZE];
+   const char *tiret_pos = strchr(coordClient, '-');
+
+   if (tiret_pos == NULL)
+   {
+      fprintf(stderr, "Format incorrect. Utilisez un tiret pour séparer le pseudo et le mot de passe.\n");
+      exit(EXIT_FAILURE);
+   }
+
+   // Calculer la longueur du pseudo
+   size_t pseudo_length = tiret_pos - coordClient;
+   size_t mdp_length = strlen(tiret_pos + 1);
+
+   // Copier le pseudo
+   strncpy(pseudo, coordClient, pseudo_length);
+   pseudo[pseudo_length] = '\0';
+
+   // Copier le mot de passe
+   strcpy(mdp, tiret_pos + 1);
+   mdp[mdp_length] = '\0';
+
+   // Envoyer le pseudo et le mot de passe au serveur a travers le buffer
+   sprintf(buffer, "pseudo:%s mdp:%s", pseudo, mdp);
+   write_server(sock, buffer);
 
    while (1)
    {
@@ -45,16 +72,18 @@ static void app(const char *address, const char *name)
 
       /* add the socket */
       FD_SET(sock, &rdfs);
+      fprintf(stderr, "coucocou\n");
 
       if (select(sock + 1, &rdfs, NULL, NULL, NULL) == -1)
       {
          perror("select()");
          exit(errno);
       }
-
+      fprintf(stderr, "coucocou\n");
       /* something from standard input : i.e keyboard */
       if (FD_ISSET(STDIN_FILENO, &rdfs))
       {
+         fprintf(stderr, "coucocou\n");
          fgets(buffer, BUF_SIZE - 1, stdin);
          {
             char *p = NULL;
@@ -69,6 +98,7 @@ static void app(const char *address, const char *name)
                buffer[BUF_SIZE - 1] = 0;
             }
          }
+
          write_server(sock, buffer);
       }
       else if (FD_ISSET(sock, &rdfs))
@@ -115,7 +145,6 @@ static int init_connection(const char *address)
       perror("connect()");
       exit(errno);
    }
-
    return sock;
 }
 
@@ -135,7 +164,6 @@ static int read_server(SOCKET sock, char *buffer)
    }
 
    buffer[n] = 0;
-
    return n;
 }
 
@@ -152,7 +180,7 @@ int main(int argc, char **argv)
 {
    if (argc < 2)
    {
-      printf("Usage : %s [address] [pseudo]\n", argv[0]);
+      printf("Usage : %s [address] [pseudo-mdp]\n", argv[0]);
       return EXIT_FAILURE;
    }
 

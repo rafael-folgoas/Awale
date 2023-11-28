@@ -61,6 +61,7 @@ static void envoyerMessagePartie(Client *receiver, Client *sender,const char *bu
 static bool addObserver(Jeu** listeJeux,Client* observer,int choix);
 static void removeObserver(Jeu* jeu,Client* observer);
 static void afficherListPartiesDisponnibles(Jeu** listeJeux,int *nbJeux,Client* client);
+int verifier_identite(const char *pseudo, const char *mdp);
 
 
 #endif /* guard */
