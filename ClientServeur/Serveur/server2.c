@@ -38,7 +38,12 @@ static void app(void)
    *nbJeux = 0;
    /* an array for all clients */
    Client clients[MAX_CLIENTS];
-   Jeu listeJeux[MAX_JEUX];
+   Jeu **listeJeux=malloc(30*sizeof(Jeu*));
+
+   for (int i = 0; i < 30; i++)
+   {
+      listeJeux[i] = malloc(sizeof(Jeu));
+   }
 
    fd_set rdfs;
 
@@ -163,7 +168,7 @@ static void app(void)
 }
 
 // Fonction pour gérer l'état du client
-void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *nbJeux,Jeu* listeJeux)
+void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *nbJeux,Jeu** listeJeux)
 {
    
    switch (client->etat)
@@ -350,13 +355,13 @@ void gestionEtat(Client *client, char *buffer, Client *clients, int actual,int *
       } 
 
       if(choix>=0 && choix<*nbJeux){
-         if(!listeJeux[choix].estFini){
+         if(!listeJeux[choix]->estFini){
             bool trouve =addObserver(listeJeux,client,choix);
             if(trouve){
                write_client(client->sock,"Vous etes en mode observateur sur la partie en cours : \n");
-               write_client(client->sock, listeJeux[choix].joueur1->name);
+               write_client(client->sock, listeJeux[choix]->joueur1->name);
                write_client(client->sock,"VS");
-               write_client(client->sock, listeJeux[choix].joueur2->name);
+               write_client(client->sock, listeJeux[choix]->joueur2->name);
                write_client(client->sock, "\n");
                write_client(client->sock,"Ecrivez quit pour quitter l observation. \n");
                client->etat=ETAT_OBSERVATEUR_JEU;
@@ -455,18 +460,18 @@ static void envoyerMessage(Client *clients, Client *sender, int actual, const ch
    }
 }
 
-static bool addObserver(Jeu* listeJeux,Client* observer,int choix){
+static bool addObserver(Jeu** listeJeux,Client* observer,int choix){
 
    bool trouve=false;
    for(int i=0;i<MAX_OBSERVERS;i++){
-      if(listeJeux[choix].observers[i]==NULL){
-         listeJeux[choix].observers[i]=observer;
+      if(listeJeux[choix]->observers[i]==NULL){
+         listeJeux[choix]->observers[i]=observer;
          trouve=true;
          break;
       }
    }
    if(trouve){
-      observer->jeuEnCours=&listeJeux[choix];
+      observer->jeuEnCours=listeJeux[choix];
    }
    return trouve;
 }
@@ -510,20 +515,20 @@ static void afficherHistoriqueParties(Client *client){
    }
    menu(*client);
 }
-static void afficherListPartiesDisponnibles(Jeu* listeJeux,int *nbJeux,Client* client){
+static void afficherListPartiesDisponnibles(Jeu** listeJeux,int *nbJeux,Client* client){
   
    if (*nbJeux > 0)
       {
          write_client(client->sock, "Voici la liste des jeux en cours : \r\n");
          char pos[20];
          for(int i=0 ; i<*nbJeux ; i++){
-            if(!listeJeux[i].estFini){
+            if(!listeJeux[i]->estFini){
                sprintf(pos, "%d", i);
                write_client(client->sock, pos);
                write_client(client->sock, " -");
-               write_client(client->sock, listeJeux[i].joueur1->name);
+               write_client(client->sock, listeJeux[i]->joueur1->name);
                write_client(client->sock," VS ");
-               write_client(client->sock, listeJeux[i].joueur2->name);
+               write_client(client->sock, listeJeux[i]->joueur2->name);
                write_client(client->sock, "- ");
             }
          }
@@ -569,6 +574,7 @@ static void jouerUnCoup(Client *joueur, char* caseChoisie){
       char* sJ2=(char*)malloc(20*sizeof(char));
       sprintf(sJ1, "%d", jeu->scoreJ1);
       sprintf(sJ2, "%d", jeu->scoreJ2);
+      //printf('jeu obsvers : %s',joueur->jeuEnCours->observers[0]->name);
       for(int i=0;i<MAX_OBSERVERS;i++){
          if(jeu->observers[i]!=NULL){
             printf("observer RENTRER %d\n",i);
@@ -635,7 +641,7 @@ static void jouerUnCoup(Client *joueur, char* caseChoisie){
       
    }
 }
-static void createJeu(Client* j1,Client* j2,int *nbJeux,Jeu* listeJeux){
+static void createJeu(Client* j1,Client* j2,int *nbJeux,Jeu** listeJeux){
    write_client(j1->sock,"La partie va commencer !\n");
    write_client(j2->sock,"La partie va commencer !\n");
    write_client(j1->sock,"Pour chatter appuyez écrivez : chat\n");
@@ -644,8 +650,6 @@ static void createJeu(Client* j1,Client* j2,int *nbJeux,Jeu* listeJeux){
 
    write_client(j1->sock,afficherTableau(jeu));
    write_client(j2->sock,afficherTableau(jeu));
-   j1->jeuEnCours=jeu;
-   j2->jeuEnCours=jeu;
    j2->adversaire=j1;
    j1->adversaire=j2;
    if(jeu->tour==0){
@@ -657,12 +661,16 @@ static void createJeu(Client* j1,Client* j2,int *nbJeux,Jeu* listeJeux){
    }
    jeu->joueur1->etat = ETAT_JEU_EN_COURS; 
    jeu->joueur2->etat = ETAT_JEU_EN_COURS; 
-   listeJeux[*nbJeux]=*jeu;
+   listeJeux[*nbJeux]=jeu;
+   
+
    (*nbJeux)++;
    for(int i=0;i<MAX_OBSERVERS;i++){
       jeu->observers[i]=NULL;
    }
    jeu->estFini=false;
+   j1->jeuEnCours=jeu;
+   j2->jeuEnCours=jeu;
 }
 
 static void changementConfidentialite(Client *client)
